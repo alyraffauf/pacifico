@@ -9,10 +9,19 @@ document.title = globalThis.location.hostname;
 
 await initializeI18n();
 
+const PreviewPage =
+  import.meta.env.DEV && globalThis.location.pathname === "/app/dev/settings"
+    ? (await import("./pages/dev/SettingsPreviewPage.tsx")).SettingsPreviewPage
+    : null;
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    {PreviewPage ? (
+      <PreviewPage />
+    ) : (
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    )}
   </StrictMode>,
 );
