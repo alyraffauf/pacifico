@@ -134,11 +134,11 @@ export function SessionsPage() {
                     {t("sessions.current")}
                   </span>
                 ) : null}
-                <span className="rounded bg-ctp-surface-0 px-2 py-0.5 text-xs text-ctp-subtext-0">
+                <span className="rounded bg-ctp-surface0 px-2 py-0.5 text-xs text-ctp-subtext0">
                   {item.sessionType}
                 </span>
               </div>
-              <p className="mt-2 text-xs text-ctp-overlay-1">
+              <p className="mt-2 text-xs text-ctp-overlay1">
                 {t("sessions.created")} {formatDateTime(item.createdAt)} ·{" "}
                 {t("sessions.expires")} {formatDateTime(item.expiresAt)}
               </p>

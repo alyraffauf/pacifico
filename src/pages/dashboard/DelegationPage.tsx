@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import {
   Alert,
   Button,
+  buttonClasses,
   Card,
   EmptyState,
   Field,
@@ -153,11 +154,11 @@ export function DelegationPage() {
                     </Button>
                   </div>
                   {resolved ? (
-                    <div className="rounded border border-ctp-surface-1 bg-ctp-base p-3 text-sm">
+                    <div className="rounded border border-ctp-surface1 bg-ctp-base p-3 text-sm">
                       <p className="font-mono text-ctp-text">
                         {resolved.handle ? `@${resolved.handle}` : resolved.did}
                       </p>
-                      <p className="mt-1 text-xs break-all text-ctp-overlay-1">
+                      <p className="mt-1 text-xs break-all text-ctp-overlay1">
                         {resolved.did} · {resolved.isLocal ? "local" : "remote"}
                       </p>
                     </div>
@@ -271,7 +272,7 @@ export function DelegationPage() {
                         ? `@${controller.handle}`
                         : controller.did}
                     </p>
-                    <p className="mt-1 text-xs break-all text-ctp-overlay-1">
+                    <p className="mt-1 text-xs break-all text-ctp-overlay1">
                       {controller.grantedScopes || "Viewer"} · added{" "}
                       {formatDateTime(controller.grantedAt)}
                     </p>
@@ -308,11 +309,14 @@ export function DelegationPage() {
                     <p className="font-mono text-sm text-ctp-text">
                       {account.handle ? `@${account.handle}` : account.did}
                     </p>
-                    <p className="mt-1 text-xs break-all text-ctp-overlay-1">
+                    <p className="mt-1 text-xs break-all text-ctp-overlay1">
                       {account.grantedScopes || "Viewer"}
                     </p>
                     <Link
-                      className="mt-4 inline-flex min-h-10 items-center rounded border border-ctp-lavender px-4 py-2 text-sm font-semibold text-ctp-lavender hover:bg-ctp-lavender/10"
+                      className={buttonClasses(
+                        "secondary",
+                        "mt-4 no-underline",
+                      )}
                       to={`/app/act-as?did=${encodeURIComponent(account.did)}`}
                     >
                       Open account
@@ -329,23 +333,23 @@ export function DelegationPage() {
             {resource.data.audit.entries.length === 0 ? (
               <EmptyState>No delegation activity yet.</EmptyState>
             ) : (
-              <Card className="divide-y divide-ctp-surface-0">
+              <Card className="divide-y divide-ctp-surface0">
                 {resource.data.audit.entries.map((entry) => (
                   <div key={entry.id} className="p-4">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <p className="font-mono text-sm text-ctp-text">
                         {entry.action}
                       </p>
-                      <time className="text-xs text-ctp-overlay-1">
+                      <time className="text-xs text-ctp-overlay1">
                         {formatDateTime(entry.created_at)}
                       </time>
                     </div>
-                    <p className="mt-1 text-xs break-all text-ctp-subtext-0">
+                    <p className="mt-1 text-xs break-all text-ctp-subtext0">
                       {entry.actor_did}
                       {entry.target_did ? ` → ${entry.target_did}` : ""}
                     </p>
                     {entry.details ? (
-                      <p className="mt-2 text-xs text-ctp-overlay-1">
+                      <p className="mt-2 text-xs text-ctp-overlay1">
                         {entry.details}
                       </p>
                     ) : null}

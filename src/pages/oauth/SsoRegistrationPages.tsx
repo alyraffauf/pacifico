@@ -396,7 +396,7 @@ export function SsoRegisterCompletePage() {
           />
           {pending.provider_email_verified && channel === "email" ? (
             <span
-              className={`mt-1 block text-xs ${usesVerifiedProviderEmail ? "text-ctp-green" : "text-ctp-overlay-1"}`}
+              className={`mt-1 block text-xs ${usesVerifiedProviderEmail ? "text-ctp-green" : "text-ctp-overlay1"}`}
             >
               {usesVerifiedProviderEmail
                 ? "Verified by your identity provider."

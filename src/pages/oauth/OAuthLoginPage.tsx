@@ -305,7 +305,7 @@ export function OAuthLoginPage() {
             <IconKey className="size-4" /> Use a passkey
           </Button>
         ) : null}
-        <div className="flex items-center gap-3 py-1 text-xs text-ctp-overlay-1 before:h-px before:flex-1 before:bg-ctp-surface-0 after:h-px after:flex-1 after:bg-ctp-surface-0">
+        <div className="flex items-center gap-3 py-1 text-xs text-ctp-overlay1 before:h-px before:flex-1 before:bg-ctp-surface0 after:h-px after:flex-1 after:bg-ctp-surface0">
           or use a password
         </div>
         <Field label="Password">
@@ -317,7 +317,7 @@ export function OAuthLoginPage() {
             required
           />
         </Field>
-        <label className="flex items-center gap-2 text-sm text-ctp-subtext-0">
+        <label className="flex items-center gap-2 text-sm text-ctp-subtext0">
           <input
             type="checkbox"
             checked={rememberDevice}

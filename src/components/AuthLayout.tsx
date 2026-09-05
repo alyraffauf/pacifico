@@ -33,7 +33,7 @@ export function AuthLayout({
               {title}
             </h1>
             {description ? (
-              <p className="mt-2 text-sm leading-6 text-ctp-subtext-0">
+              <p className="mt-2 text-sm leading-6 text-ctp-subtext0">
                 {description}
               </p>
             ) : null}

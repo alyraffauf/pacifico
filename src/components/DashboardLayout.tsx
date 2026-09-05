@@ -176,8 +176,8 @@ export function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-ctp-base lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
-      <aside className="border-b border-ctp-surface-0 bg-ctp-crust lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:border-r lg:border-b-0">
-        <div className="flex min-h-16 items-center border-b border-ctp-surface-0 px-4">
+      <aside className="border-b border-ctp-surface0 bg-ctp-crust lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:border-r lg:border-b-0">
+        <div className="flex min-h-16 items-center border-b border-ctp-surface0 px-4">
           <a
             href="/"
             className="flex min-w-0 items-center gap-3 font-mono text-sm font-semibold text-ctp-text no-underline"
@@ -188,24 +188,24 @@ export function DashboardLayout({
         </div>
 
         <div
-          className="relative border-b border-ctp-surface-0 p-3"
+          className="relative border-b border-ctp-surface0 p-3"
           ref={menuRef}
         >
           <button
             type="button"
             aria-expanded={accountMenuOpen}
-            className="flex w-full items-center justify-between gap-3 rounded-md border border-ctp-surface-0 bg-ctp-mantle/40 px-3 py-3 text-left hover:border-ctp-surface-1 hover:bg-ctp-mantle"
+            className="flex w-full items-center justify-between gap-3 rounded-md border border-ctp-surface0 bg-ctp-mantle/40 px-3 py-3 text-left hover:border-ctp-surface1 hover:bg-ctp-mantle"
             onClick={() => setAccountMenuOpen((open) => !open)}
           >
             <span className="min-w-0">
               <span className="block truncate font-mono text-sm font-semibold text-ctp-text">
                 @{session.handle}
               </span>
-              <span className="block truncate font-mono text-xs text-ctp-overlay-1">
+              <span className="block truncate font-mono text-xs text-ctp-overlay1">
                 {session.did}
               </span>
               {session.contactKind !== "none" ? (
-                <span className="mt-2 flex items-center gap-1.5 text-xs text-ctp-overlay-1">
+                <span className="mt-2 flex items-center gap-1.5 text-xs text-ctp-overlay1">
                   <IconAddressBook className="size-3.5" aria-hidden="true" />
                   {(session.contactKind === "email" &&
                     session.emailConfirmed) ||
@@ -217,17 +217,17 @@ export function DashboardLayout({
               ) : null}
             </span>
             <IconChevronDown
-              className={`size-4 shrink-0 text-ctp-overlay-1 transition-transform ${accountMenuOpen ? "rotate-180" : ""}`}
+              className={`size-4 shrink-0 text-ctp-overlay1 transition-transform ${accountMenuOpen ? "rotate-180" : ""}`}
               aria-hidden="true"
             />
           </button>
           {accountMenuOpen ? (
-            <div className="absolute inset-x-3 top-full z-20 mt-1 rounded border border-ctp-surface-1 bg-ctp-mantle p-1 shadow-xl">
+            <div className="absolute inset-x-3 top-full z-20 mt-1 rounded border border-ctp-surface1 bg-ctp-mantle p-1 shadow-xl">
               {savedAccounts.map((account) => (
                 <button
                   key={account.did}
                   type="button"
-                  className="block w-full rounded px-3 py-2 text-left text-sm text-ctp-subtext-1 hover:bg-ctp-surface-0 hover:text-ctp-text"
+                  className="block w-full rounded px-3 py-2 text-left text-sm text-ctp-subtext1 hover:bg-ctp-surface0 hover:text-ctp-text"
                   onClick={() => void changeAccount(account.did)}
                 >
                   @{account.handle}
@@ -235,14 +235,14 @@ export function DashboardLayout({
               ))}
               <button
                 type="button"
-                className="block w-full rounded px-3 py-2 text-left text-sm text-ctp-subtext-1 hover:bg-ctp-surface-0 hover:text-ctp-text"
+                className="block w-full rounded px-3 py-2 text-left text-sm text-ctp-subtext1 hover:bg-ctp-surface0 hover:text-ctp-text"
                 onClick={() => navigate("/app/login")}
               >
                 {t("dashboard.addAnotherAccount")}
               </button>
               <button
                 type="button"
-                className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-ctp-red hover:bg-ctp-surface-0"
+                className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-ctp-red hover:bg-ctp-surface0"
                 onClick={() => void signOut()}
               >
                 <IconLogout className="size-4" aria-hidden="true" />{" "}
@@ -277,7 +277,7 @@ export function DashboardLayout({
                     href={externalUrl(session)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex min-h-10 shrink-0 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-ctp-subtext-0 no-underline transition-colors hover:bg-ctp-mantle hover:text-ctp-text"
+                    className="flex min-h-10 shrink-0 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-ctp-subtext0 no-underline transition-colors hover:bg-ctp-mantle hover:text-ctp-text"
                   >
                     {content}
                   </a>
@@ -288,7 +288,7 @@ export function DashboardLayout({
                   key={path}
                   to={`/app/${path}`}
                   className={({ isActive }) =>
-                    `flex min-h-10 shrink-0 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium no-underline transition-colors ${isActive ? "bg-ctp-surface-0 text-ctp-lavender" : "text-ctp-subtext-0 hover:bg-ctp-mantle hover:text-ctp-text"}`
+                    `flex min-h-10 shrink-0 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium no-underline transition-colors ${isActive ? "bg-ctp-surface0 text-ctp-lavender" : "text-ctp-subtext0 hover:bg-ctp-mantle hover:text-ctp-text"}`
                   }
                 >
                   {content}

@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { AuthLayout } from "../../components/AuthLayout.tsx";
-import { Alert, Button, Card, Loading } from "../../components/ui.tsx";
+import {
+  Alert,
+  Button,
+  Card,
+  DataTable,
+  Loading,
+} from "../../components/ui.tsx";
 import { readJson, requestParameter } from "../../lib/http.ts";
 import {
   approvedConsentScopes,
@@ -65,13 +71,13 @@ function PermissionDetails({
   );
   const details = describeExpandedPermissions(allowed);
   return (
-    <details className="mt-3 text-xs text-ctp-subtext-0">
+    <details className="mt-3 text-xs text-ctp-subtext0">
       <summary className="cursor-pointer text-ctp-blue">
         {t("oauth.consent.showIncludedScopes", { count: allowed.length })}
       </summary>
       {details.repository.length > 0 ? (
         <div className="mt-3 overflow-x-auto">
-          <table className="data-table text-xs">
+          <DataTable className="text-xs">
             <thead>
               <tr>
                 <th>{t("oauth.consent.permTable.data")}</th>
@@ -94,7 +100,7 @@ function PermissionDetails({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DataTable>
         </div>
       ) : null}
       {details.rpc.length > 0 ? (
@@ -116,9 +122,7 @@ function PermissionDetails({
           {details.other.map((scope) => (
             <li key={scope.scope}>
               {scope.display_name}{" "}
-              <code className="break-all text-ctp-overlay-1">
-                {scope.scope}
-              </code>
+              <code className="break-all text-ctp-overlay1">{scope.scope}</code>
             </li>
           ))}
         </ul>
@@ -337,7 +341,7 @@ export function OAuthConsentPage() {
                     {t("oauthConsent.delegatedAccess")}
                   </p>
                   <p>
-                    <span className="block text-xs text-ctp-overlay-1">
+                    <span className="block text-xs text-ctp-overlay1">
                       {t("oauthConsent.actingAs")}
                     </span>
                     <span className="font-mono text-xs break-all">
@@ -345,13 +349,13 @@ export function OAuthConsentPage() {
                     </span>
                   </p>
                   <p>
-                    <span className="block text-xs text-ctp-overlay-1">
+                    <span className="block text-xs text-ctp-overlay1">
                       {t("oauthConsent.controller")}
                     </span>
                     @{consent.controller_handle || consent.controller_did}
                   </p>
                   <p>
-                    <span className="block text-xs text-ctp-overlay-1">
+                    <span className="block text-xs text-ctp-overlay1">
                       {t("oauthConsent.accessLevel")}
                     </span>
                     {consent.delegation_level}
@@ -359,11 +363,11 @@ export function OAuthConsentPage() {
                 </>
               ) : (
                 <>
-                  <span className="text-xs text-ctp-overlay-1">
+                  <span className="text-xs text-ctp-overlay1">
                     {t("oauth.consent.signingInAs")}
                   </span>
                   {consent.handle ? <strong>@{consent.handle}</strong> : null}
-                  <span className="font-mono text-xs break-all text-ctp-overlay-1">
+                  <span className="font-mono text-xs break-all text-ctp-overlay1">
                     {consent.did}
                   </span>
                 </>
@@ -418,13 +422,13 @@ export function OAuthConsentPage() {
             ) : null}
             {groupedScopes.map(([category, scopes]) => (
               <section key={category} className="grid gap-2">
-                <h3 className="font-mono text-xs font-semibold tracking-wide text-ctp-overlay-1 uppercase">
+                <h3 className="font-mono text-xs font-semibold tracking-wide text-ctp-overlay1 uppercase">
                   {category}
                 </h3>
                 {scopes.map((scope) => (
                   <label
                     key={scope.scope}
-                    className="flex gap-3 rounded border border-ctp-surface-0 bg-ctp-crust p-3"
+                    className="flex gap-3 rounded border border-ctp-surface0 bg-ctp-crust p-3"
                   >
                     <input
                       type="checkbox"
@@ -443,11 +447,11 @@ export function OAuthConsentPage() {
                       <span className="block text-sm font-semibold text-ctp-text">
                         {scope.display_name || scope.scope}
                       </span>
-                      <span className="mt-1 block text-xs leading-5 text-ctp-subtext-0">
+                      <span className="mt-1 block text-xs leading-5 text-ctp-subtext0">
                         {scope.description}
                       </span>
                       {scope.required ? (
-                        <span className="mt-2 inline-block rounded bg-ctp-surface-0 px-2 py-0.5 text-xs">
+                        <span className="mt-2 inline-block rounded bg-ctp-surface0 px-2 py-0.5 text-xs">
                           {t("oauth.consent.required")}
                         </span>
                       ) : null}
@@ -463,13 +467,13 @@ export function OAuthConsentPage() {
             ))}
             {approvableSets.length > 0 ? (
               <section className="grid gap-2">
-                <h3 className="font-mono text-xs font-semibold tracking-wide text-ctp-overlay-1 uppercase">
+                <h3 className="font-mono text-xs font-semibold tracking-wide text-ctp-overlay1 uppercase">
                   {t("oauth.consent.permissionSets")}
                 </h3>
                 {approvableSets.map((permissionSet) => (
                   <label
                     key={permissionSet.include_scope}
-                    className="flex gap-3 rounded border border-ctp-surface-0 bg-ctp-crust p-3"
+                    className="flex gap-3 rounded border border-ctp-surface0 bg-ctp-crust p-3"
                   >
                     <input
                       type="checkbox"
@@ -493,7 +497,7 @@ export function OAuthConsentPage() {
                           permissionSet.include_scope}
                       </span>
                       {permissionSet.detail ? (
-                        <span className="mt-1 block text-xs leading-5 text-ctp-subtext-0">
+                        <span className="mt-1 block text-xs leading-5 text-ctp-subtext0">
                           {permissionSet.detail}
                         </span>
                       ) : null}
@@ -520,7 +524,7 @@ export function OAuthConsentPage() {
                 {restrictedScopes.map((scope) => (
                   <div key={scope.scope} className="text-sm">
                     <strong>{scope.display_name}</strong>
-                    <code className="ml-2 text-xs break-all text-ctp-overlay-1">
+                    <code className="ml-2 text-xs break-all text-ctp-overlay1">
                       {scopeLabel(scope.scope)}
                     </code>
                   </div>
@@ -538,7 +542,7 @@ export function OAuthConsentPage() {
                             permissionSet.nsid ||
                             permissionSet.include_scope}
                         </strong>
-                        <code className="ml-2 text-xs break-all text-ctp-overlay-1">
+                        <code className="ml-2 text-xs break-all text-ctp-overlay1">
                           {scopeLabel(scope.scope)}
                         </code>
                       </div>
@@ -550,14 +554,14 @@ export function OAuthConsentPage() {
                       {failed.nsid}
                       {failed.aud ? ` (${failed.aud})` : ""}
                     </strong>
-                    <span className="ml-2 text-xs text-ctp-subtext-0">
+                    <span className="ml-2 text-xs text-ctp-subtext0">
                       {t(failureReasonKey(failed.reason))}
                     </span>
                   </div>
                 ))}
               </section>
             ) : null}
-            <label className="flex items-center gap-2 text-sm text-ctp-subtext-0">
+            <label className="flex items-center gap-2 text-sm text-ctp-subtext0">
               <input
                 type="checkbox"
                 checked={remember}

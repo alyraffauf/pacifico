@@ -9,7 +9,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b border-ctp-surface-0 bg-ctp-crust">
+      <header className="border-b border-ctp-surface0 bg-ctp-crust">
         <PageContainer className="flex min-h-16 items-center justify-between gap-4 py-3">
           <Link
             to="/"
@@ -26,8 +26,8 @@ export function SiteLayout({ children }: { children: ReactNode }) {
           </Link>
         </PageContainer>
       </header>
-      <div className="flex-1">{children}</div>
-      <footer className="border-t border-ctp-surface-0 bg-ctp-crust">
+      <div className="flex flex-1 flex-col">{children}</div>
+      <footer className="border-t border-ctp-surface0 bg-ctp-crust">
         <PageContainer className="flex justify-end py-6 text-sm">
           <nav aria-label="Footer navigation" className="flex gap-4">
             <a href="https://atproto.com" target="_blank" rel="noreferrer">

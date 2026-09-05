@@ -727,7 +727,7 @@ export function RegisterPage() {
       ) : null}
       {step === "key" ? (
         <div className="grid gap-4">
-          <p className="text-sm leading-6 text-ctp-subtext-0">
+          <p className="text-sm leading-6 text-ctp-subtext0">
             Choose who creates the first signing key for your existing DID.
           </p>
           <Button
@@ -780,7 +780,7 @@ export function RegisterPage() {
       {step === "creating" ? <Loading label="Creating account" /> : null}
       {step === "passkey" ? (
         <div className="grid gap-4">
-          <p className="text-sm leading-6 text-ctp-subtext-0">
+          <p className="text-sm leading-6 text-ctp-subtext0">
             Create the passkey you will use to sign in.
           </p>
           <Field label="Passkey name" hint="Optional">
@@ -803,7 +803,7 @@ export function RegisterPage() {
             Save this recovery credential now. It will not be shown again.
           </Alert>
           <Card className="p-4">
-            <p className="text-xs text-ctp-overlay-1">
+            <p className="text-xs text-ctp-overlay1">
               {account.appPasswordName}
             </p>
             <code className="mt-2 block font-mono break-all text-ctp-green">
@@ -833,7 +833,7 @@ export function RegisterPage() {
           </div>
         ) : (
           <form className="grid gap-4" onSubmit={verify}>
-            <p className="text-sm leading-6 text-ctp-subtext-0">
+            <p className="text-sm leading-6 text-ctp-subtext0">
               Enter the code sent through {form.channel}.
             </p>
             <Field label="Verification code">

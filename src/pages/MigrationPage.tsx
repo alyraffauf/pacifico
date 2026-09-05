@@ -136,10 +136,10 @@ function ProgressView({ progress }: { progress: MigrationProgress }) {
         {entries.map(([label, done]) => (
           <div
             key={label}
-            className="flex items-center justify-between rounded border border-ctp-surface-0 px-3 py-2 text-sm"
+            className="flex items-center justify-between rounded border border-ctp-surface0 px-3 py-2 text-sm"
           >
             <span>{label}</span>
-            <span className={done ? "text-ctp-green" : "text-ctp-overlay-0"}>
+            <span className={done ? "text-ctp-green" : "text-ctp-overlay0"}>
               {done ? "done" : "pending"}
             </span>
           </div>
@@ -437,7 +437,7 @@ function InboundWizard({
           Migration changes the PDS endpoint in your identity. Keep access to
           the old account until this finishes.
         </Alert>
-        <label className="flex gap-3 text-sm text-ctp-subtext-0">
+        <label className="flex gap-3 text-sm text-ctp-subtext0">
           <input
             type="checkbox"
             checked={understood}
@@ -525,15 +525,15 @@ function InboundWizard({
         {state.error ? <Alert tone="error">{state.error}</Alert> : null}
         <Card className="grid gap-3 p-4 text-sm">
           <p>
-            <span className="text-ctp-overlay-1">From</span>
+            <span className="text-ctp-overlay1">From</span>
             <br />@{state.sourceHandle}
           </p>
           <p>
-            <span className="text-ctp-overlay-1">To</span>
+            <span className="text-ctp-overlay1">To</span>
             <br />@{state.targetHandle}
           </p>
           <p>
-            <span className="text-ctp-overlay-1">DID retained</span>
+            <span className="text-ctp-overlay1">DID retained</span>
             <br />
             <span className="font-mono text-xs">{state.sourceDid}</span>
           </p>
@@ -1159,17 +1159,17 @@ export function MigrationPage() {
           {pendingResume.direction === "inbound" ? (
             <>
               <p>
-                <span className="text-ctp-overlay-1">From</span>
+                <span className="text-ctp-overlay1">From</span>
                 <br />@{pendingResume.sourceHandle}
               </p>
               {pendingResume.targetHandle ? (
                 <p>
-                  <span className="text-ctp-overlay-1">To</span>
+                  <span className="text-ctp-overlay1">To</span>
                   <br />@{pendingResume.targetHandle}
                 </p>
               ) : null}
               <p>
-                <span className="text-ctp-overlay-1">Progress</span>
+                <span className="text-ctp-overlay1">Progress</span>
                 <br />
                 {pendingResume.progressSummary}
               </p>
@@ -1177,7 +1177,7 @@ export function MigrationPage() {
           ) : (
             <>
               <p>
-                <span className="text-ctp-overlay-1">DID</span>
+                <span className="text-ctp-overlay1">DID</span>
                 <br />
                 <span className="font-mono text-xs">
                   {pendingResume.userDid}
@@ -1185,7 +1185,7 @@ export function MigrationPage() {
               </p>
               {pendingResume.targetHandle ? (
                 <p>
-                  <span className="text-ctp-overlay-1">Handle</span>
+                  <span className="text-ctp-overlay1">Handle</span>
                   <br />@{pendingResume.targetHandle}
                 </p>
               ) : null}
@@ -1229,7 +1229,7 @@ export function MigrationPage() {
     >
       <button
         type="button"
-        className="rounded border border-ctp-surface-1 bg-ctp-mantle p-5 text-left hover:border-ctp-lavender"
+        className="rounded border border-ctp-surface1 bg-ctp-mantle p-5 text-left hover:border-ctp-lavender"
         onClick={() => {
           inboundFlow.reset();
           setDirection("inbound");
@@ -1238,14 +1238,14 @@ export function MigrationPage() {
         <strong className="font-mono text-ctp-text">
           Move from another PDS
         </strong>
-        <span className="mt-2 block text-sm text-ctp-subtext-0">
+        <span className="mt-2 block text-sm text-ctp-subtext0">
           Connect the current host over OAuth and transfer the repository,
           blobs, and identity.
         </span>
       </button>
       <button
         type="button"
-        className="rounded border border-ctp-surface-1 bg-ctp-mantle p-5 text-left hover:border-ctp-lavender"
+        className="rounded border border-ctp-surface1 bg-ctp-mantle p-5 text-left hover:border-ctp-lavender"
         onClick={() => {
           offlineFlow.reset();
           setDirection("offline");
@@ -1254,7 +1254,7 @@ export function MigrationPage() {
         <strong className="font-mono text-ctp-text">
           Restore an offline backup
         </strong>
-        <span className="mt-2 block text-sm text-ctp-subtext-0">
+        <span className="mt-2 block text-sm text-ctp-subtext0">
           Recover from a CAR export and PLC rotation key when the old host is
           unavailable.
         </span>

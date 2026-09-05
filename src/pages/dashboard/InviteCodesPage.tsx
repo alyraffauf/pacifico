@@ -152,13 +152,13 @@ export function InviteCodesPage() {
                   <code
                     className={
                       code.disabled
-                        ? "font-mono text-sm text-ctp-overlay-1 line-through"
+                        ? "font-mono text-sm text-ctp-overlay1 line-through"
                         : "font-mono text-sm text-ctp-green"
                     }
                   >
                     {code.code}
                   </code>
-                  <p className="mt-1 text-xs text-ctp-overlay-1">
+                  <p className="mt-1 text-xs text-ctp-overlay1">
                     {t("inviteCodes.createdOn", {
                       date: formatDate(code.createdAt),
                     })}{" "}

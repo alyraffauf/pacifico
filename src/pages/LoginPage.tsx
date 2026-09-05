@@ -57,13 +57,13 @@ export function LoginPage() {
 
         {auth.savedAccounts.length > 0 ? (
           <div className="grid gap-2">
-            <p className="text-xs font-semibold tracking-wide text-ctp-overlay-1 uppercase">
+            <p className="text-xs font-semibold tracking-wide text-ctp-overlay1 uppercase">
               {t("login.chooseAccount")}
             </p>
             {auth.savedAccounts.map((account) => (
               <div
                 key={account.did}
-                className="flex items-center rounded border border-ctp-surface-1 bg-ctp-crust p-2"
+                className="flex items-center rounded border border-ctp-surface1 bg-ctp-crust p-2"
               >
                 <button
                   type="button"
@@ -74,7 +74,7 @@ export function LoginPage() {
                   <span className="block truncate font-mono text-sm font-semibold text-ctp-text">
                     @{account.handle}
                   </span>
-                  <span className="block truncate font-mono text-xs text-ctp-overlay-1">
+                  <span className="block truncate font-mono text-xs text-ctp-overlay1">
                     {account.did}
                   </span>
                 </button>

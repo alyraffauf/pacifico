@@ -136,7 +136,7 @@ export function ReauthDialog({
         ref={dialogRef}
         aria-labelledby="reauth-title"
         aria-modal="true"
-        className="w-full max-w-md rounded border border-ctp-surface-1 bg-ctp-mantle p-6 shadow-xl"
+        className="w-full max-w-md rounded border border-ctp-surface1 bg-ctp-mantle p-6 shadow-xl"
       >
         <h2
           id="reauth-title"
@@ -144,7 +144,7 @@ export function ReauthDialog({
         >
           {t("reauth.title")}
         </h2>
-        <p className="mt-2 text-sm leading-6 text-ctp-subtext-0">
+        <p className="mt-2 text-sm leading-6 text-ctp-subtext0">
           This account change needs fresh authentication.
         </p>
         {error ? (
@@ -158,7 +158,7 @@ export function ReauthDialog({
               <button
                 type="button"
                 key={method}
-                className={`flex-1 rounded px-3 py-2 text-sm capitalize ${activeMethod === method ? "bg-ctp-surface-0 text-ctp-text" : "text-ctp-subtext-0"}`}
+                className={`flex-1 rounded px-3 py-2 text-sm capitalize ${activeMethod === method ? "bg-ctp-surface0 text-ctp-text" : "text-ctp-subtext0"}`}
                 onClick={() => setActiveMethod(method)}
               >
                 {method}
@@ -191,7 +191,7 @@ export function ReauthDialog({
             </Field>
           ) : null}
           {activeMethod === "passkey" ? (
-            <p className="text-sm text-ctp-subtext-0">
+            <p className="text-sm text-ctp-subtext0">
               Use a passkey registered to this account.
             </p>
           ) : null}

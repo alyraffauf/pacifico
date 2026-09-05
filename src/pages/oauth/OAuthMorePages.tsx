@@ -78,13 +78,13 @@ export function OAuthAccountsPage() {
             <button
               key={account.did}
               type="button"
-              className="rounded border border-ctp-surface-1 bg-ctp-crust p-4 text-left hover:border-ctp-lavender"
+              className="rounded border border-ctp-surface1 bg-ctp-crust p-4 text-left hover:border-ctp-lavender"
               onClick={() => void select(account.did)}
             >
               <span className="block font-mono text-sm font-semibold text-ctp-text">
                 @{account.handle}
               </span>
-              <span className="mt-1 block text-xs text-ctp-overlay-1">
+              <span className="mt-1 block text-xs text-ctp-overlay1">
                 {account.email}
               </span>
             </button>

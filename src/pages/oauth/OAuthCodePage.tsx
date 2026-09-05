@@ -76,7 +76,7 @@ export function OAuthCodePage() {
           />
         </Field>
         {mode === "totp" ? (
-          <label className="flex items-center gap-2 text-sm text-ctp-subtext-0">
+          <label className="flex items-center gap-2 text-sm text-ctp-subtext0">
             <input
               type="checkbox"
               checked={trustDevice}

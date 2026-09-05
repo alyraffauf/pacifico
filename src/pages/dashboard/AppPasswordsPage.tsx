@@ -171,7 +171,7 @@ export function AppPasswordsPage() {
               <h2 className="font-mono text-sm font-semibold text-ctp-text">
                 {password.name}
               </h2>
-              <p className="mt-1 text-xs text-ctp-overlay-1">
+              <p className="mt-1 text-xs text-ctp-overlay1">
                 Created {formatDate(password.createdAt)} ·{" "}
                 {password.scopes ? "Scoped" : "Full access"}
               </p>

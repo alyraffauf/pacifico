@@ -3,6 +3,7 @@ import {
   Alert,
   Button,
   Card,
+  DataTable,
   EmptyState,
   Field,
   Input,
@@ -258,7 +259,7 @@ export function AdminPage() {
             [t("admin.blobStorage"), formatBytes(stats.blobStorageBytes)],
           ].map(([label, value]) => (
             <Card key={label} className="p-4">
-              <p className="text-xs tracking-wide text-ctp-overlay-1 uppercase">
+              <p className="text-xs tracking-wide text-ctp-overlay1 uppercase">
                 {label}
               </p>
               <p className="mt-2 font-mono text-xl font-bold text-ctp-text">
@@ -320,10 +321,10 @@ export function AdminPage() {
                 </div>
               ) : null}
               <fieldset className="grid gap-3">
-                <legend className="font-mono text-sm text-ctp-subtext-0">
+                <legend className="font-mono text-sm text-ctp-subtext0">
                   {t("admin.themeColors")}
                 </legend>
-                <p className="text-xs text-ctp-overlay-1">
+                <p className="text-xs text-ctp-overlay1">
                   {t("admin.themeColorsHint")}
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -361,7 +362,7 @@ export function AdminPage() {
           <h2 className="font-mono font-semibold text-ctp-text">
             {t("admin.signalIntegration")}
           </h2>
-          <p className="mt-1 text-sm text-ctp-subtext-0">
+          <p className="mt-1 text-sm text-ctp-subtext0">
             {signalLinked
               ? t("admin.signalLinked")
               : signalQr
@@ -425,7 +426,7 @@ export function AdminPage() {
         <EmptyState>{t("admin.searchToSeeUsers")}</EmptyState>
       ) : (
         <Card className="overflow-x-auto">
-          <table className="data-table">
+          <DataTable>
             <thead>
               <tr>
                 <th>{t("admin.handle")}</th>
@@ -438,7 +439,7 @@ export function AdminPage() {
               {accounts.map((account) => (
                 <tr key={account.did}>
                   <td className="font-mono text-ctp-text">@{account.handle}</td>
-                  <td className="font-mono text-xs break-all text-ctp-subtext-0">
+                  <td className="font-mono text-xs break-all text-ctp-subtext0">
                     {account.did}
                   </td>
                   <td>{formatDateTime(account.indexedAt)}</td>
@@ -453,7 +454,7 @@ export function AdminPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DataTable>
         </Card>
       )}
       {cursor ? (
@@ -476,7 +477,7 @@ export function AdminPage() {
         {inviteCodes.length === 0 ? (
           <EmptyState>{t("inviteCodes.noCodes")}</EmptyState>
         ) : (
-          <Card className="divide-y divide-ctp-surface-0">
+          <Card className="divide-y divide-ctp-surface0">
             {inviteCodes.map((code) => (
               <div
                 key={code.code}
@@ -486,13 +487,13 @@ export function AdminPage() {
                   <code
                     className={
                       code.disabled
-                        ? "font-mono text-sm text-ctp-overlay-1 line-through"
+                        ? "font-mono text-sm text-ctp-overlay1 line-through"
                         : "font-mono text-sm text-ctp-green"
                     }
                   >
                     {code.code}
                   </code>
-                  <p className="mt-1 text-xs text-ctp-overlay-1">
+                  <p className="mt-1 text-xs text-ctp-overlay1">
                     {t("inviteCodes.createdOn", {
                       date: formatDateTime(code.createdAt),
                     })}
@@ -538,7 +539,7 @@ export function AdminPage() {
               <h2 className="font-mono font-semibold text-ctp-text">
                 @{selected.handle}
               </h2>
-              <p className="mt-1 font-mono text-xs break-all text-ctp-overlay-1">
+              <p className="mt-1 font-mono text-xs break-all text-ctp-overlay1">
                 {selected.did}
               </p>
             </div>
@@ -548,11 +549,11 @@ export function AdminPage() {
           </div>
           <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
             <div>
-              <dt className="text-ctp-overlay-1">{t("admin.email")}</dt>
+              <dt className="text-ctp-overlay1">{t("admin.email")}</dt>
               <dd>{selected.email ?? "-"}</dd>
             </div>
             <div>
-              <dt className="text-ctp-overlay-1">{t("admin.invites")}</dt>
+              <dt className="text-ctp-overlay1">{t("admin.invites")}</dt>
               <dd>
                 {selected.invitesDisabled
                   ? t("admin.disabled")

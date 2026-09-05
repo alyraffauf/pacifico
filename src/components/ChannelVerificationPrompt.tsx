@@ -67,7 +67,7 @@ export function ChannelVerificationPrompt({
   if (channel === "telegram") {
     const encodedHandle = handle.replaceAll(".", "_");
     return (
-      <div className="grid gap-2 text-sm leading-6 text-ctp-subtext-0">
+      <div className="grid gap-2 text-sm leading-6 text-ctp-subtext0">
         {server.telegramBotUsername ? (
           <a
             href={`https://t.me/${server.telegramBotUsername}?start=${encodedHandle}`}
@@ -86,14 +86,14 @@ export function ChannelVerificationPrompt({
           )}
           .
         </p>
-        <p className="text-ctp-overlay-1">Waiting for verification...</p>
+        <p className="text-ctp-overlay1">Waiting for verification...</p>
       </div>
     );
   }
 
   if (channel === "discord") {
     return (
-      <div className="grid gap-2 text-sm leading-6 text-ctp-subtext-0">
+      <div className="grid gap-2 text-sm leading-6 text-ctp-subtext0">
         {server.discordAppId ? (
           <a
             href={`https://discord.com/users/${server.discordAppId}`}
@@ -107,7 +107,7 @@ export function ChannelVerificationPrompt({
           Or send <code>/start {handle}</code> to{" "}
           <strong>{server.discordBotUsername ?? "the bot"}</strong>.
         </p>
-        <p className="text-ctp-overlay-1">Waiting for verification...</p>
+        <p className="text-ctp-overlay1">Waiting for verification...</p>
       </div>
     );
   }

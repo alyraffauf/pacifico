@@ -337,10 +337,10 @@ export function SettingsPage() {
           <h2 className="font-mono font-semibold text-ctp-text">
             {t("settings.changeHandle")}
           </h2>
-          <p className="mt-1 text-sm text-ctp-subtext-0">
+          <p className="mt-1 text-sm text-ctp-subtext0">
             {t("settings.currentHandle", { handle: session.handle })}
           </p>
-          <p className="mt-1 text-sm text-ctp-subtext-0">
+          <p className="mt-1 text-sm text-ctp-subtext0">
             Your DID remains the same when the handle changes.
           </p>
           <div className="mt-5 flex gap-2">
@@ -360,7 +360,7 @@ export function SettingsPage() {
             </Button>
           </div>
           {customHandle ? (
-            <div className="mt-4 rounded border border-ctp-surface-1 bg-ctp-crust p-4 text-xs leading-5 text-ctp-subtext-0">
+            <div className="mt-4 rounded border border-ctp-surface1 bg-ctp-crust p-4 text-xs leading-5 text-ctp-subtext0">
               <p>{t("settings.setupMethodsIntro")}</p>
               <code className="mt-2 block break-all text-ctp-lavender">
                 _atproto.{handle || "your-domain.example"} TXT &quot;did=
@@ -413,9 +413,9 @@ export function SettingsPage() {
                 : t("settings.changeHandleButton")}
             </Button>
           </form>
-          <dl className="mt-6 border-t border-ctp-surface-0 pt-4 text-sm">
-            <dt className="text-ctp-overlay-1">DID</dt>
-            <dd className="mt-1 font-mono text-xs break-all text-ctp-subtext-1">
+          <dl className="mt-6 border-t border-ctp-surface0 pt-4 text-sm">
+            <dt className="text-ctp-overlay1">DID</dt>
+            <dd className="mt-1 font-mono text-xs break-all text-ctp-subtext1">
               {session.did}
             </dd>
           </dl>
@@ -425,7 +425,7 @@ export function SettingsPage() {
             {t("settings.changeEmail")}
           </h2>
           {getSessionEmail(session) ? (
-            <p className="mt-3 text-xs text-ctp-overlay-1">
+            <p className="mt-3 text-xs text-ctp-overlay1">
               {t("settings.currentEmail", {
                 email: getSessionEmail(session) ?? "",
               })}
@@ -515,7 +515,7 @@ export function SettingsPage() {
                 ))}
               </Select>
             </Field>
-            <div className="flex items-start gap-3 rounded border border-ctp-surface-1 p-4">
+            <div className="flex items-start gap-3 rounded border border-ctp-surface1 p-4">
               <input
                 id="legacy-login"
                 aria-labelledby="legacy-login-label legacy-login-description"
@@ -536,7 +536,7 @@ export function SettingsPage() {
                 </span>
                 <span
                   id="legacy-login-description"
-                  className="mt-1 block text-xs leading-5 text-ctp-overlay-1"
+                  className="mt-1 block text-xs leading-5 text-ctp-overlay1"
                 >
                   {t("security.legacyLoginDescription")}
                 </span>
@@ -548,7 +548,7 @@ export function SettingsPage() {
           <h2 className="font-mono font-semibold text-ctp-red">
             Delete account
           </h2>
-          <p className="mt-1 text-sm text-ctp-subtext-0">
+          <p className="mt-1 text-sm text-ctp-subtext0">
             Permanently removes the account and repository.
           </p>
           {deleteRequested ? (

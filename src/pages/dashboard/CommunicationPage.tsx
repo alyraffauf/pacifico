@@ -342,7 +342,7 @@ export function CommunicationPage() {
                   onSubmit={confirmVerification}
                 >
                   <input type="hidden" name="channel" value={verify.channel} />
-                  <p className="text-sm text-ctp-subtext-0">
+                  <p className="text-sm text-ctp-subtext0">
                     Enter the code sent to {verify.identifier}.
                   </p>
                   <Field label="Verification code">
@@ -390,7 +390,7 @@ export function CommunicationPage() {
             {loaded.history.length === 0 ? (
               <EmptyState>No messages have been sent.</EmptyState>
             ) : (
-              <Card className="divide-y divide-ctp-surface-0">
+              <Card className="divide-y divide-ctp-surface0">
                 {loaded.history.map((item) => (
                   <article
                     key={`${item.createdAt}-${item.channel}-${item.notificationType}-${item.subject ?? ""}`}
@@ -400,14 +400,14 @@ export function CommunicationPage() {
                       <h3 className="font-medium text-ctp-text">
                         {item.subject || item.notificationType}
                       </h3>
-                      <time className="text-xs text-ctp-overlay-1">
+                      <time className="text-xs text-ctp-overlay1">
                         {formatDateTime(item.createdAt)}
                       </time>
                     </div>
-                    <p className="mt-1 text-xs tracking-wide text-ctp-overlay-1 uppercase">
+                    <p className="mt-1 text-xs tracking-wide text-ctp-overlay1 uppercase">
                       {item.channel} · {item.status}
                     </p>
-                    <p className="mt-3 text-sm leading-6 whitespace-pre-wrap text-ctp-subtext-0">
+                    <p className="mt-3 text-sm leading-6 whitespace-pre-wrap text-ctp-subtext0">
                       {item.body}
                     </p>
                   </article>

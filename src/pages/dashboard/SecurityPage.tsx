@@ -14,6 +14,7 @@ import {
   Alert,
   Button,
   Card,
+  CodeBlock,
   EmptyState,
   Field,
   Input,
@@ -408,7 +409,7 @@ export function SecurityPage() {
 
       <Card className="p-5">
         <SectionTitle icon={IconLock} title="Password" />
-        <p className="mt-2 text-sm text-ctp-subtext-0">
+        <p className="mt-2 text-sm text-ctp-subtext0">
           {password.hasPassword
             ? "Password sign-in is enabled."
             : "This account has no password."}
@@ -481,7 +482,7 @@ export function SecurityPage() {
         <SectionTitle icon={IconShieldCheck} title="Authenticator app" />
         {totpSetup.step === "scan" ? (
           <form className="mt-4 grid max-w-xl gap-4" onSubmit={enableTotp}>
-            <p className="text-sm text-ctp-subtext-0">
+            <p className="text-sm text-ctp-subtext0">
               Scan this code, then enter the six-digit number from your
               authenticator app.
             </p>
@@ -490,7 +491,7 @@ export function SecurityPage() {
               src={`data:image/png;base64,${totpSetup.qrBase64}`}
               alt="Authenticator QR code"
             />
-            <details className="text-sm text-ctp-subtext-0">
+            <details className="text-sm text-ctp-subtext0">
               <summary>Enter the secret manually</summary>
               <code className="mt-2 block rounded bg-ctp-crust p-3 text-xs break-all text-ctp-text">
                 {new URL(totpSetup.uri).searchParams.get("secret")}
@@ -526,9 +527,9 @@ export function SecurityPage() {
             <Alert tone="warning">
               Save these one-time backup codes before closing this panel.
             </Alert>
-            <pre className="code-block columns-2">
+            <CodeBlock className="columns-2">
               {totpSetup.codes.join("\n")}
-            </pre>
+            </CodeBlock>
             <Button
               variant="secondary"
               onClick={() => void copyBackupCodes(totpSetup.codes)}
@@ -552,7 +553,7 @@ export function SecurityPage() {
           </div>
         ) : (
           <div className="mt-4">
-            <p className="text-sm text-ctp-subtext-0">
+            <p className="text-sm text-ctp-subtext0">
               {totp.enabled
                 ? "Authenticator codes are required for sensitive sign-ins."
                 : "Add a second factor using any TOTP authenticator app."}
@@ -585,12 +586,12 @@ export function SecurityPage() {
                 ) : null}
                 {showTotpDisable || showBackupRegeneration ? (
                   <form
-                    className="grid gap-4 rounded border border-ctp-surface-0 bg-ctp-crust p-4"
+                    className="grid gap-4 rounded border border-ctp-surface0 bg-ctp-crust p-4"
                     onSubmit={
                       showTotpDisable ? disableTotp : regenerateBackupCodes
                     }
                   >
-                    <p className="text-sm text-ctp-subtext-0">
+                    <p className="text-sm text-ctp-subtext0">
                       Enter your password and current authenticator code.
                     </p>
                     <Field label="Password">
@@ -660,7 +661,7 @@ export function SecurityPage() {
             passkeys.map((passkey) => (
               <div
                 key={passkey.id}
-                className="flex flex-col gap-3 rounded border border-ctp-surface-0 bg-ctp-crust p-3 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 rounded border border-ctp-surface0 bg-ctp-crust p-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 {editingPasskeyId === passkey.id ? (
                   <div className="flex flex-1 gap-2">
@@ -684,7 +685,7 @@ export function SecurityPage() {
                       <p className="font-mono text-sm text-ctp-text">
                         {passkey.friendlyName || "Unnamed passkey"}
                       </p>
-                      <p className="mt-1 text-xs text-ctp-overlay-1">
+                      <p className="mt-1 text-xs text-ctp-overlay1">
                         Added {formatDateTime(passkey.createdAt)}
                         {passkey.lastUsed
                           ? ` · Used ${formatDateTime(passkey.lastUsed)}`
@@ -732,7 +733,7 @@ export function SecurityPage() {
             trustedDevices.map((device) => (
               <div
                 key={device.id}
-                className="flex flex-col gap-3 rounded border border-ctp-surface-0 bg-ctp-crust p-3 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 rounded border border-ctp-surface0 bg-ctp-crust p-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 {editingDeviceId === device.id ? (
                   <div className="flex flex-1 gap-2">
@@ -756,7 +757,7 @@ export function SecurityPage() {
                       <p className="font-mono text-sm text-ctp-text">
                         {device.friendlyName || "Unnamed device"}
                       </p>
-                      <p className="mt-1 text-xs text-ctp-overlay-1">
+                      <p className="mt-1 text-xs text-ctp-overlay1">
                         Last seen {formatDateTime(device.lastSeenAt)}
                       </p>
                     </div>
@@ -792,13 +793,13 @@ export function SecurityPage() {
             {linkedAccounts.map((account) => (
               <div
                 key={account.id}
-                className="flex items-center justify-between gap-4 rounded border border-ctp-surface-0 bg-ctp-crust p-3"
+                className="flex items-center justify-between gap-4 rounded border border-ctp-surface0 bg-ctp-crust p-3"
               >
                 <div>
                   <p className="font-mono text-sm text-ctp-text">
                     {account.provider_name}
                   </p>
-                  <p className="mt-1 text-xs text-ctp-overlay-1">
+                  <p className="mt-1 text-xs text-ctp-overlay1">
                     {account.provider_username || account.provider_email}
                   </p>
                 </div>
