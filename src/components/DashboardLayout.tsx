@@ -265,10 +265,10 @@ export function DashboardLayout({
                 key={path}
                 to={`/app/${path}`}
                 className={({ isActive }) =>
-                  `flex min-h-10 shrink-0 items-center gap-3 rounded-md border-l-2 px-3 py-2 text-sm font-medium no-underline transition-colors ${isActive ? "border-ctp-lavender bg-ctp-lavender/10 text-ctp-lavender" : "border-transparent text-ctp-subtext-0 hover:bg-ctp-surface-0/60 hover:text-ctp-text"}`
+                  `flex min-h-10 shrink-0 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium no-underline transition-colors ${isActive ? "bg-ctp-surface-0 text-ctp-lavender" : "text-ctp-subtext-0 hover:bg-ctp-mantle hover:text-ctp-text"}`
                 }
               >
-                <Icon className="size-[1.125rem] shrink-0" aria-hidden="true" />
+                <Icon className="size-5 shrink-0" aria-hidden="true" />
                 <span className="whitespace-nowrap">{t(labelKey)}</span>
               </NavLink>
             ))}
