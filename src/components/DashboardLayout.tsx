@@ -173,14 +173,14 @@ export function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-ctp-base lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
-      <aside className="border-b border-ctp-surface-0 bg-ctp-crust lg:sticky lg:top-0 lg:h-screen lg:border-b-0 lg:border-r">
-        <div className="flex min-h-16 items-center justify-between border-b border-ctp-surface-0 px-4">
+      <aside className="border-b border-ctp-surface-0 bg-ctp-crust lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:border-b-0 lg:border-r">
+        <div className="flex min-h-16 items-center border-b border-ctp-surface-0 px-4">
           <a
             href="/"
-            className="flex items-center gap-3 font-mono text-sm font-semibold text-ctp-text no-underline"
+            className="flex min-w-0 items-center gap-3 font-mono text-sm font-semibold text-ctp-text no-underline"
           >
-            <SiteMark className="h-10 w-9" />
-            {hostname}
+            <SiteMark className="h-9 w-8" />
+            <span className="truncate">{hostname}</span>
           </a>
         </div>
 
@@ -190,7 +190,8 @@ export function DashboardLayout({
         >
           <button
             type="button"
-            className="flex w-full items-center justify-between gap-3 rounded px-2 py-2 text-left hover:bg-ctp-surface-0"
+            aria-expanded={accountMenuOpen}
+            className="flex w-full items-center justify-between gap-3 rounded-md border border-ctp-surface-0 bg-ctp-mantle/40 px-3 py-3 text-left hover:border-ctp-surface-1 hover:bg-ctp-mantle"
             onClick={() => setAccountMenuOpen((open) => !open)}
           >
             <span className="min-w-0">
@@ -200,9 +201,20 @@ export function DashboardLayout({
               <span className="block truncate font-mono text-xs text-ctp-overlay-1">
                 {session.did}
               </span>
+              {session.contactKind !== "none" ? (
+                <span className="mt-2 flex items-center gap-1.5 text-xs text-ctp-overlay-1">
+                  <IconAddressBook className="size-3.5" aria-hidden="true" />
+                  {(session.contactKind === "email" &&
+                    session.emailConfirmed) ||
+                  (session.contactKind === "channel" &&
+                    session.preferredChannelVerified)
+                    ? t("dashboard.verified")
+                    : t("dashboard.unverified")}
+                </span>
+              ) : null}
             </span>
             <IconChevronDown
-              className="size-4 shrink-0 text-ctp-overlay-1"
+              className={`size-4 shrink-0 text-ctp-overlay-1 transition-transform ${accountMenuOpen ? "rotate-180" : ""}`}
               aria-hidden="true"
             />
           </button>
@@ -231,7 +243,7 @@ export function DashboardLayout({
                 onClick={() => void signOut()}
               >
                 <IconLogout className="size-4" aria-hidden="true" />{" "}
-                {t("dashboard.signOut")}
+                {t("dashboard.signOut", { handle: session.handle })}
               </button>
             </div>
           ) : null}
@@ -240,7 +252,7 @@ export function DashboardLayout({
         <nav
           ref={navRef}
           aria-label="Account navigation"
-          className="flex gap-1 overflow-x-auto p-3 lg:block lg:overflow-visible"
+          className="flex gap-1 overflow-x-auto p-3 lg:grid lg:flex-1 lg:content-start lg:gap-1 lg:overflow-y-auto lg:overflow-x-hidden lg:py-4"
         >
           {navigationItems
             .filter((item) => {
@@ -253,27 +265,14 @@ export function DashboardLayout({
                 key={path}
                 to={`/app/${path}`}
                 className={({ isActive }) =>
-                  `flex shrink-0 items-center gap-3 rounded px-3 py-2 text-sm font-medium no-underline transition-colors ${isActive ? "bg-ctp-surface-0 text-ctp-lavender" : "text-ctp-subtext-0 hover:bg-ctp-surface-0 hover:text-ctp-text"}`
+                  `flex min-h-10 shrink-0 items-center gap-3 rounded-md border-l-2 px-3 py-2 text-sm font-medium no-underline transition-colors ${isActive ? "border-ctp-lavender bg-ctp-lavender/10 text-ctp-lavender" : "border-transparent text-ctp-subtext-0 hover:bg-ctp-surface-0/60 hover:text-ctp-text"}`
                 }
               >
-                <Icon className="size-4" aria-hidden="true" />
-                {t(labelKey)}
+                <Icon className="size-[1.125rem] shrink-0" aria-hidden="true" />
+                <span className="whitespace-nowrap">{t(labelKey)}</span>
               </NavLink>
             ))}
         </nav>
-
-        <div className="hidden px-4 pt-2 text-xs text-ctp-overlay-0 lg:block">
-          {session.contactKind !== "none" ? (
-            <p className="flex items-center gap-2">
-              <IconAddressBook className="size-3" aria-hidden="true" />{" "}
-              {(session.contactKind === "email" && session.emailConfirmed) ||
-              (session.contactKind === "channel" &&
-                session.preferredChannelVerified)
-                ? t("dashboard.verified")
-                : t("dashboard.unverified")}
-            </p>
-          ) : null}
-        </div>
       </aside>
 
       <main className="min-w-0 px-4 py-8 sm:px-8 lg:px-10 lg:py-10">

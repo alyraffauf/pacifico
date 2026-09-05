@@ -331,7 +331,7 @@ export function SettingsPage() {
             {t("settings.changeHandle")}
           </h2>
           <p className="mt-1 text-sm text-ctp-subtext-0">
-            {t("settings.currentHandle")}: @{session.handle}
+            {t("settings.currentHandle", { handle: session.handle })}
           </p>
           <p className="mt-1 text-sm text-ctp-subtext-0">
             Your DID remains the same when the handle changes.
@@ -419,7 +419,9 @@ export function SettingsPage() {
           </h2>
           {getSessionEmail(session) ? (
             <p className="mt-3 text-xs text-ctp-overlay-1">
-              {t("settings.currentEmail")}: {getSessionEmail(session)}
+              {t("settings.currentEmail", {
+                email: getSessionEmail(session) ?? "",
+              })}
             </p>
           ) : null}
           <form className="mt-5 grid gap-4" onSubmit={saveEmail}>
