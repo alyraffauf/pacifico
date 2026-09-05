@@ -1,13 +1,11 @@
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { IconRefresh } from "@tabler/icons-react";
 import {
   Alert,
   Button,
   PageHeading,
   SettingsDialog,
   SettingsItem,
-  SettingsRow,
   SettingsSection,
   SettingsTag,
 } from "../../components/ui.tsx";
@@ -114,10 +112,25 @@ export function SessionsPage() {
     }
   }
 
+  const otherSessionCount =
+    resource.data?.sessions.filter((item) => !item.isCurrent).length ?? 0;
   const heading = (
     <PageHeading
       title={t("dashboard.navSessions")}
       description={t("sessions.description")}
+      actions={
+        resource.data ? (
+          <Button
+            type="button"
+            variant="dangerOutline"
+            disabled={mutating || otherSessionCount === 0}
+            aria-haspopup="dialog"
+            onClick={requestOtherSessionRevocation}
+          >
+            {t("sessions.revokeAll")}
+          </Button>
+        ) : undefined
+      }
     />
   );
 
@@ -125,7 +138,7 @@ export function SessionsPage() {
     return (
       <div className="mx-auto grid w-full max-w-[52rem] gap-6" aria-busy="true">
         {heading}
-        <SettingsSection title={t("sessions.listTitle")}>
+        <SettingsSection title={t("dashboard.navSessions")} titleHidden>
           <SettingsItem title={t("common.loading")} />
           <SettingsItem title={t("common.loading")} />
         </SettingsSection>
@@ -144,9 +157,6 @@ export function SessionsPage() {
     );
   }
 
-  const otherSessionCount = resource.data.sessions.filter(
-    (item) => !item.isCurrent,
-  ).length;
   const revocationDialogOpen = pendingRevocation !== null;
   const revocationDescription = pendingRevocation
     ? pendingRevocation.kind === "others"
@@ -173,28 +183,7 @@ export function SessionsPage() {
       ) : null}
       {mutationNotice ? <Alert tone="success">{mutationNotice}</Alert> : null}
 
-      <SettingsSection
-        title={t("sessions.listTitle")}
-        description={t("sessions.listDescription")}
-        action={
-          <Button
-            type="button"
-            variant="ghost"
-            size="compact"
-            disabled={mutating || resource.loading}
-            onClick={() => {
-              setMutationNotice(null);
-              void resource.reload();
-            }}
-          >
-            <IconRefresh
-              className={`size-4 ${resource.loading ? "animate-spin" : ""}`}
-              aria-hidden="true"
-            />
-            {t("common.refresh")}
-          </Button>
-        }
-      >
+      <SettingsSection title={t("dashboard.navSessions")} titleHidden>
         {resource.data.sessions.length === 0 ? (
           <SettingsItem title={t("sessions.noSessions")} />
         ) : (
@@ -240,31 +229,6 @@ export function SessionsPage() {
             />
           ))
         )}
-      </SettingsSection>
-
-      <SettingsSection title={t("sessions.controlsTitle")}>
-        <SettingsRow
-          label={t("sessions.otherSessions")}
-          value={otherSessionCount.toLocaleString()}
-          description={
-            otherSessionCount > 0
-              ? t("sessions.otherSessionsDescription")
-              : t("sessions.noOtherSessions")
-          }
-          technical
-          action={
-            <Button
-              type="button"
-              variant="dangerOutline"
-              size="compact"
-              disabled={mutating || otherSessionCount === 0}
-              aria-haspopup="dialog"
-              onClick={requestOtherSessionRevocation}
-            >
-              {t("sessions.revokeAll")}
-            </Button>
-          }
-        />
       </SettingsSection>
 
       <SettingsDialog
