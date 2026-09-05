@@ -1,26 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Link,
-  useLocation,
-  useNavigate,
-  useSearchParams,
-} from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AuthLayout } from "../components/AuthLayout.tsx";
 import {
-  ChannelVerificationPrompt,
   hasBotVerification,
   useBotVerificationPolling,
 } from "../components/ChannelVerificationPrompt.tsx";
-import {
-  Alert,
-  Button,
-  Card,
-  Field,
-  Input,
-  Loading,
-  Select,
-  Textarea,
-} from "../components/ui.tsx";
+import { Alert, Loading } from "../components/ui.tsx";
 import { setSession } from "../lib/auth.ts";
 import { api, ApiError } from "../lib/api.ts";
 import {
@@ -51,23 +36,16 @@ import type {
 } from "../lib/registration/types.ts";
 import { getPublicPdsEndpoint } from "../lib/pacifico/registration.ts";
 
-type Mode = "passkey" | "password";
-type Step =
-  | "info"
-  | "key"
-  | "document"
-  | "creating"
-  | "passkey"
-  | "app-password"
-  | "verify"
-  | "updated-document";
-type Account = {
-  did: ReturnType<typeof unsafeAsDid>;
-  handle: ReturnType<typeof unsafeAsHandle>;
-  setupToken?: string;
-  appPassword?: string;
-  appPasswordName?: string;
-};
+import {
+  AccountDetailsView,
+  CredentialView,
+  DidSetupView,
+  VerificationView,
+  type RegistrationAccount as Account,
+  type RegistrationFormState,
+  type RegistrationMode as Mode,
+  type RegistrationStepView as Step,
+} from "./RegistrationViews.tsx";
 
 const storedStepByPageStep: Record<Step, RegistrationStep> = {
   info: "info",
@@ -104,7 +82,7 @@ export function RegisterPage() {
   const [step, setStep] = useState<Step>(() =>
     restored ? restorePageStep(restored.step) : "info",
   );
-  const [form, setForm] = useState(() => ({
+  const [form, setForm] = useState<RegistrationFormState>(() => ({
     handle: restored?.info.handle ?? "",
     domain: restored?.pdsHostname ?? "",
     email: restored?.info.email ?? "",
@@ -531,24 +509,6 @@ export function RegisterPage() {
         )}
       </AuthLayout>
     );
-  const restoredPasswordField =
-    form.didType === "web-external" && mode === "password" && !form.password ? (
-      <Field
-        label="Account password"
-        hint="Required after restoring an interrupted registration."
-      >
-        <Input
-          type="password"
-          value={form.password}
-          onChange={(event) =>
-            setForm({ ...form, password: event.target.value })
-          }
-          autoComplete="current-password"
-          required
-        />
-      </Field>
-    ) : null;
-
   return (
     <AuthLayout
       title={step === "verify" ? "Verify your account" : "Create an account"}
@@ -556,301 +516,65 @@ export function RegisterPage() {
     >
       {error ? <Alert tone="error">{error}</Alert> : null}
       {step === "info" ? (
-        <form className="grid gap-4" onSubmit={submitInfo}>
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              type="button"
-              variant={mode === "passkey" ? "primary" : "secondary"}
-              onClick={() =>
-                navigate(
-                  `/app/oauth/register${searchParams.toString() ? `?${searchParams}` : ""}`,
-                )
-              }
-            >
-              Passkey
-            </Button>
-            <Button
-              type="button"
-              variant={mode === "password" ? "primary" : "secondary"}
-              onClick={() =>
-                navigate(
-                  `/app/oauth/register-password${searchParams.toString() ? `?${searchParams}` : ""}`,
-                )
-              }
-            >
-              Password
-            </Button>
-          </div>
-          <div className="grid grid-cols-[1fr_minmax(9rem,auto)] gap-2">
-            <Field label="Handle">
-              <Input
-                value={form.handle}
-                onChange={(event) =>
-                  setForm({ ...form, handle: event.target.value })
-                }
-                placeholder="alice"
-                autoComplete="username"
-                required
-              />
-            </Field>
-            <Field label="Domain">
-              <Select
-                value={form.domain}
-                onChange={(event) =>
-                  setForm({ ...form, domain: event.target.value })
-                }
-              >
-                {server.availableUserDomains.map((domain) => (
-                  <option key={domain}>{domain}</option>
-                ))}
-              </Select>
-            </Field>
-          </div>
-          {fullHandle ? (
-            <p className="-mt-2 font-mono text-xs text-ctp-green">
-              @{fullHandle}
-            </p>
-          ) : null}
-          {mode === "password" ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Password">
-                <Input
-                  type="password"
-                  minLength={8}
-                  value={form.password}
-                  onChange={(event) =>
-                    setForm({ ...form, password: event.target.value })
-                  }
-                  autoComplete="new-password"
-                  required
-                />
-              </Field>
-              <Field label="Confirm password">
-                <Input
-                  type="password"
-                  minLength={8}
-                  value={form.confirmPassword}
-                  onChange={(event) =>
-                    setForm({ ...form, confirmPassword: event.target.value })
-                  }
-                  autoComplete="new-password"
-                  required
-                />
-              </Field>
-            </div>
-          ) : null}
-          <Field label="Verification channel">
-            <Select
-              value={form.channel}
-              onChange={(event) =>
-                setForm({
-                  ...form,
-                  channel: event.target.value as VerificationChannel,
-                })
-              }
-            >
-              {availableChannels.map((channel) => (
-                <option key={channel}>{channel}</option>
-              ))}
-            </Select>
-          </Field>
-          {form.channel === "email" ? (
-            <Field label="Email">
-              <Input
-                type="email"
-                value={form.email}
-                onChange={(event) =>
-                  setForm({ ...form, email: event.target.value })
-                }
-                autoComplete="email"
-                required
-              />
-            </Field>
-          ) : (
-            <Field label={`${form.channel} username`}>
-              <Input
-                value={form[form.channel]}
-                onChange={(event) =>
-                  setForm({ ...form, [form.channel]: event.target.value })
-                }
-                required
-              />
-            </Field>
-          )}
-          <Field label="DID type">
-            <Select
-              value={form.didType}
-              onChange={(event) =>
-                setForm({ ...form, didType: event.target.value as DidType })
-              }
-            >
-              <option value="plc">did:plc</option>
-              {server.selfHostedDidWebEnabled !== false ? (
-                <option value="web">Hosted did:web</option>
-              ) : null}
-              <option value="web-external">Existing did:web</option>
-            </Select>
-          </Field>
-          {form.didType === "web-external" ? (
-            <Field label="Existing DID">
-              <Input
-                value={form.externalDid}
-                onChange={(event) =>
-                  setForm({ ...form, externalDid: event.target.value })
-                }
-                placeholder="did:web:example.com"
-                required
-              />
-            </Field>
-          ) : null}
-          {server.inviteCodeRequired ? (
-            <Field label="Invite code">
-              <Input
-                value={form.inviteCode}
-                onChange={(event) =>
-                  setForm({ ...form, inviteCode: event.target.value })
-                }
-                required
-              />
-            </Field>
-          ) : null}
-          <Button disabled={busy}>
-            {busy ? "Creating" : "Create account"}
-          </Button>
-          <Link className="text-center text-sm" to="/app/migrate">
-            Move an existing account
-          </Link>
-          <Link className="text-center text-sm" to="/app/login">
-            Sign in instead
-          </Link>
-        </form>
+        <AccountDetailsView
+          mode={mode}
+          form={form}
+          setForm={setForm}
+          server={server}
+          availableChannels={availableChannels}
+          fullHandle={fullHandle}
+          busy={busy}
+          onSubmit={submitInfo}
+          onModeChange={(nextMode) =>
+            navigate(
+              `/app/oauth/register${nextMode === "password" ? "-password" : ""}${
+                searchParams.toString() ? `?${searchParams}` : ""
+              }`,
+            )
+          }
+        />
       ) : null}
-      {step === "key" ? (
-        <div className="grid gap-4">
-          <p className="text-sm leading-6 text-ctp-subtext0">
-            Choose who creates the first signing key for your existing DID.
-          </p>
-          <Button
-            disabled={busy}
-            onClick={() => void prepareExternalDid("reserved")}
-          >
-            Use a server-reserved key
-          </Button>
-          <Button
-            variant="secondary"
-            disabled={busy}
-            onClick={() => void prepareExternalDid("byod")}
-          >
-            Generate a key in this browser
-          </Button>
-          <Button variant="ghost" onClick={() => setStep("info")}>
-            Back
-          </Button>
-        </div>
-      ) : null}
-      {step === "document" || step === "updated-document" ? (
-        <div className="grid gap-4">
-          <Alert tone="warning">
-            Publish this document at your did:web address before continuing.
-          </Alert>
-          <Field label="DID document">
-            <Textarea
-              className="min-h-80 bg-ctp-crust"
-              value={documentText}
-              readOnly
-              spellCheck={false}
-            />
-          </Field>
-          <Button
-            variant="secondary"
-            onClick={() => void navigator.clipboard.writeText(documentText)}
-          >
-            Copy document
-          </Button>
-          <Button
-            disabled={busy}
-            onClick={() =>
-              step === "document" ? void createAccount() : void activate()
-            }
-          >
-            {busy ? "Checking" : "I published it"}
-          </Button>
-        </div>
+      {step === "key" || step === "document" || step === "updated-document" ? (
+        <DidSetupView
+          step={step}
+          documentText={documentText}
+          busy={busy}
+          onChooseKey={(nextKeyMode) => void prepareExternalDid(nextKeyMode)}
+          onBack={() => setStep("info")}
+          onContinue={() =>
+            step === "document" ? void createAccount() : void activate()
+          }
+        />
       ) : null}
       {step === "creating" ? <Loading label="Creating account" /> : null}
-      {step === "passkey" ? (
-        <div className="grid gap-4">
-          <p className="text-sm leading-6 text-ctp-subtext0">
-            Create the passkey you will use to sign in.
-          </p>
-          <Field label="Passkey name" hint="Optional">
-            <Input
-              value={form.passkeyName}
-              onChange={(event) =>
-                setForm({ ...form, passkeyName: event.target.value })
-              }
-              placeholder="This device"
-            />
-          </Field>
-          <Button disabled={busy} onClick={() => void createPasskey()}>
-            {busy ? "Waiting for browser" : "Create passkey"}
-          </Button>
-        </div>
-      ) : null}
-      {step === "app-password" && account ? (
-        <div className="grid gap-4">
-          <Alert tone="warning">
-            Save this recovery credential now. It will not be shown again.
-          </Alert>
-          <Card className="p-4">
-            <p className="text-xs text-ctp-overlay1">
-              {account.appPasswordName}
-            </p>
-            <code className="mt-2 block font-mono break-all text-ctp-green">
-              {account.appPassword}
-            </code>
-          </Card>
-          <Button
-            variant="secondary"
-            onClick={() =>
-              void navigator.clipboard.writeText(account.appPassword ?? "")
-            }
-          >
-            Copy credential
-          </Button>
-          <Button onClick={() => setStep("verify")}>I saved it</Button>
-        </div>
+      {step === "passkey" || step === "app-password" ? (
+        <CredentialView
+          step={step}
+          form={form}
+          setForm={setForm}
+          account={account}
+          busy={busy}
+          onCreatePasskey={() => void createPasskey()}
+          onCredentialSaved={() => setStep("verify")}
+        />
       ) : null}
       {step === "verify" ? (
-        usesBotVerification && account ? (
-          <div className="grid gap-4">
-            <ChannelVerificationPrompt
-              channel={form.channel}
-              handle={account.handle}
-              server={server}
-            />
-            {restoredPasswordField}
-          </div>
-        ) : (
-          <form className="grid gap-4" onSubmit={verify}>
-            <p className="text-sm leading-6 text-ctp-subtext0">
-              Enter the code sent through {form.channel}.
-            </p>
-            <Field label="Verification code">
-              <Input
-                value={verificationCode}
-                onChange={(event) => setVerificationCode(event.target.value)}
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                required
-              />
-            </Field>
-            {restoredPasswordField}
-            <Button disabled={busy || !verificationCode.trim()}>
-              {busy ? "Verifying" : "Verify"}
-            </Button>
-          </form>
-        )
+        <VerificationView
+          form={form}
+          setForm={setForm}
+          account={account}
+          server={server}
+          usesBotVerification={usesBotVerification}
+          restoredPasswordRequired={
+            form.didType === "web-external" &&
+            mode === "password" &&
+            !form.password
+          }
+          verificationCode={verificationCode}
+          busy={busy}
+          onVerificationCodeChange={setVerificationCode}
+          onSubmit={verify}
+        />
       ) : null}
     </AuthLayout>
   );

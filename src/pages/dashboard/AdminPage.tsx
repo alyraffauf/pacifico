@@ -22,14 +22,14 @@ import type {
   ServerStats,
 } from "../../lib/types/api.ts";
 
-type Notice = { tone: "success" | "error"; text: string };
+import {
+  AccountAdministrationSection,
+  InviteCodeSection,
+  ServerConfigurationSections,
+  ServerSummary,
+} from "./AdminSections.tsx";
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
-  return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
-}
+type Notice = { tone: "success" | "error"; text: string };
 
 function editableConfig(config: ServerConfig): ServerConfig {
   return {
@@ -251,26 +251,18 @@ export function AdminPage() {
       />
       {notice ? <Alert tone={notice.tone}>{notice.text}</Alert> : null}
       {stats ? (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {[
-            [t("admin.users"), stats.userCount.toLocaleString()],
-            [t("admin.repos"), stats.repoCount.toLocaleString()],
-            [t("admin.records"), stats.recordCount.toLocaleString()],
-            [t("admin.blobStorage"), formatBytes(stats.blobStorageBytes)],
-          ].map(([label, value]) => (
-            <Card key={label} className="p-4">
-              <p className="text-xs tracking-wide text-ctp-overlay1 uppercase">
-                {label}
-              </p>
-              <p className="mt-2 font-mono text-xl font-bold text-ctp-text">
-                {value}
-              </p>
-            </Card>
-          ))}
-        </div>
+        <ServerSummary
+          stats={stats}
+          labels={{
+            users: t("admin.users"),
+            repos: t("admin.repos"),
+            records: t("admin.records"),
+            blobStorage: t("admin.blobStorage"),
+          }}
+        />
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <ServerConfigurationSections>
         {config ? (
           <Card className="p-5">
             <form className="grid gap-4" onSubmit={saveConfig}>
@@ -402,75 +394,79 @@ export function AdminPage() {
             ) : null}
           </div>
         </Card>
-      </div>
+      </ServerConfigurationSections>
 
-      <Card className="p-5">
-        <form
-          className="flex flex-col gap-3 sm:flex-row sm:items-end"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void run(() => loadAccounts(true), t("common.refresh"));
-          }}
-        >
-          <Field label={t("admin.search")}>
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("admin.searchPlaceholder")}
-            />
-          </Field>
-          <Button disabled={busy}>{t("admin.search")}</Button>
-        </form>
-      </Card>
-      {accounts.length === 0 ? (
-        <EmptyState>{t("admin.searchToSeeUsers")}</EmptyState>
-      ) : (
-        <Card className="overflow-x-auto">
-          <DataTable>
-            <thead>
-              <tr>
-                <th>{t("admin.handle")}</th>
-                <th>{t("admin.did")}</th>
-                <th>{t("admin.created")}</th>
-                <th aria-label="Actions" />
-              </tr>
-            </thead>
-            <tbody>
-              {accounts.map((account) => (
-                <tr key={account.did}>
-                  <td className="font-mono text-ctp-text">@{account.handle}</td>
-                  <td className="font-mono text-xs break-all text-ctp-subtext0">
-                    {account.did}
-                  </td>
-                  <td>{formatDateTime(account.indexedAt)}</td>
-                  <td>
-                    <Button
-                      variant="secondary"
-                      onClick={() => void openAccount(account)}
-                    >
-                      {t("admin.userDetails")}
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </DataTable>
+      <AccountAdministrationSection>
+        <Card className="p-5">
+          <form
+            className="flex flex-col gap-3 sm:flex-row sm:items-end"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void run(() => loadAccounts(true), t("common.refresh"));
+            }}
+          >
+            <Field label={t("admin.search")}>
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t("admin.searchPlaceholder")}
+              />
+            </Field>
+            <Button disabled={busy}>{t("admin.search")}</Button>
+          </form>
         </Card>
-      )}
-      {cursor ? (
-        <Button
-          variant="secondary"
-          className="justify-self-center"
-          disabled={busy}
-          onClick={() =>
-            void run(() => loadAccounts(false), t("admin.loadMore"))
-          }
-        >
-          {t("admin.loadMore")}
-        </Button>
-      ) : null}
+        {accounts.length === 0 ? (
+          <EmptyState>{t("admin.searchToSeeUsers")}</EmptyState>
+        ) : (
+          <Card className="overflow-x-auto">
+            <DataTable>
+              <thead>
+                <tr>
+                  <th>{t("admin.handle")}</th>
+                  <th>{t("admin.did")}</th>
+                  <th>{t("admin.created")}</th>
+                  <th aria-label="Actions" />
+                </tr>
+              </thead>
+              <tbody>
+                {accounts.map((account) => (
+                  <tr key={account.did}>
+                    <td className="font-mono text-ctp-text">
+                      @{account.handle}
+                    </td>
+                    <td className="font-mono text-xs break-all text-ctp-subtext0">
+                      {account.did}
+                    </td>
+                    <td>{formatDateTime(account.indexedAt)}</td>
+                    <td>
+                      <Button
+                        variant="secondary"
+                        onClick={() => void openAccount(account)}
+                      >
+                        {t("admin.userDetails")}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </DataTable>
+          </Card>
+        )}
+        {cursor ? (
+          <Button
+            variant="secondary"
+            className="justify-self-center"
+            disabled={busy}
+            onClick={() =>
+              void run(() => loadAccounts(false), t("admin.loadMore"))
+            }
+          >
+            {t("admin.loadMore")}
+          </Button>
+        ) : null}
+      </AccountAdministrationSection>
 
-      <section className="grid gap-3">
+      <InviteCodeSection>
         <h2 className="font-mono text-sm font-semibold text-ctp-lavender">
           {t("inviteCodes.yourCodes")}
         </h2>
@@ -530,7 +526,7 @@ export function AdminPage() {
             ))}
           </Card>
         )}
-      </section>
+      </InviteCodeSection>
 
       {selected ? (
         <Card className="border-ctp-lavender/40 p-5">

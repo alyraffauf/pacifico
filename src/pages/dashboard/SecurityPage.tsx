@@ -1,19 +1,9 @@
 import { useCallback, useState } from "react";
-import {
-  IconCopy,
-  IconDeviceLaptop,
-  IconEdit,
-  IconKey,
-  IconLink,
-  IconLock,
-  IconShieldCheck,
-  IconTrash,
-} from "@tabler/icons-react";
+import { IconCopy, IconEdit, IconTrash } from "@tabler/icons-react";
 import { ReauthDialog } from "../../components/ReauthDialog.tsx";
 import {
   Alert,
   Button,
-  Card,
   CodeBlock,
   EmptyState,
   Field,
@@ -27,6 +17,13 @@ import { api, ApiError } from "../../lib/api.ts";
 import { formatDateTime } from "../../lib/date.ts";
 import { createPasskeyCredential } from "../../lib/flows/perform-passkey-registration.ts";
 import type { SsoLinkedAccount, TrustedDevice } from "../../lib/types/api.ts";
+import {
+  AuthenticatorSection,
+  LinkedAccountSection,
+  PasskeySection,
+  PasswordSection,
+  TrustedDeviceSection,
+} from "./SecuritySections.tsx";
 
 interface SsoProvider {
   provider: string;
@@ -407,8 +404,7 @@ export function SecurityPage() {
         <Alert tone="warning">{partialErrors.join(" ")}</Alert>
       ) : null}
 
-      <Card className="p-5">
-        <SectionTitle icon={IconLock} title="Password" />
+      <PasswordSection>
         <p className="mt-2 text-sm text-ctp-subtext0">
           {password.hasPassword
             ? "Password sign-in is enabled."
@@ -476,10 +472,9 @@ export function SecurityPage() {
             ) : null}
           </div>
         )}
-      </Card>
+      </PasswordSection>
 
-      <Card className="p-5">
-        <SectionTitle icon={IconShieldCheck} title="Authenticator app" />
+      <AuthenticatorSection>
         {totpSetup.step === "scan" ? (
           <form className="mt-4 grid max-w-xl gap-4" onSubmit={enableTotp}>
             <p className="text-sm text-ctp-subtext0">
@@ -639,10 +634,9 @@ export function SecurityPage() {
             )}
           </div>
         )}
-      </Card>
+      </AuthenticatorSection>
 
-      <Card className="p-5">
-        <SectionTitle icon={IconKey} title="Passkeys" />
+      <PasskeySection>
         <div className="mt-4 flex max-w-xl flex-col gap-2 sm:flex-row">
           <Input
             value={passkeyName}
@@ -722,10 +716,9 @@ export function SecurityPage() {
             ))
           )}
         </div>
-      </Card>
+      </PasskeySection>
 
-      <Card className="p-5">
-        <SectionTitle icon={IconDeviceLaptop} title="Trusted devices" />
+      <TrustedDeviceSection>
         <div className="mt-4 grid gap-2">
           {trustedDevices.length === 0 ? (
             <EmptyState>No trusted devices.</EmptyState>
@@ -784,11 +777,10 @@ export function SecurityPage() {
             ))
           )}
         </div>
-      </Card>
+      </TrustedDeviceSection>
 
       {providers.length > 0 || linkedAccounts.length > 0 ? (
-        <Card className="p-5">
-          <SectionTitle icon={IconLink} title="Linked sign-in accounts" />
+        <LinkedAccountSection>
           <div className="mt-4 grid gap-2">
             {linkedAccounts.map((account) => (
               <div
@@ -831,7 +823,7 @@ export function SecurityPage() {
                 </Button>
               ))}
           </div>
-        </Card>
+        </LinkedAccountSection>
       ) : null}
 
       {reauthRequest ? (
@@ -848,20 +840,5 @@ export function SecurityPage() {
         />
       ) : null}
     </div>
-  );
-}
-
-function SectionTitle({
-  icon: Icon,
-  title,
-}: {
-  icon: typeof IconLock;
-  title: string;
-}) {
-  return (
-    <h2 className="flex items-center gap-2 font-mono text-base font-semibold text-ctp-text">
-      <Icon className="size-5 text-ctp-lavender" aria-hidden="true" />
-      {title}
-    </h2>
   );
 }
