@@ -3,9 +3,9 @@ export interface EmailVerificationDeps {
   onVerified: () => Promise<void>;
 }
 
-export function createEmailVerificationPoller(
-  deps: EmailVerificationDeps,
-): { checkAndAdvance: () => Promise<boolean> } {
+export function createEmailVerificationPoller(deps: EmailVerificationDeps): {
+  checkAndAdvance: () => Promise<boolean>;
+} {
   let checking = false;
 
   return {

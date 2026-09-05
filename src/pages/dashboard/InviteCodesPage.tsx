@@ -118,7 +118,7 @@ export function InviteCodesPage() {
         <Alert tone="warning">
           <p className="font-semibold">{t("inviteCodes.created")}</p>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            <code className="flex-1 break-all rounded bg-ctp-crust px-3 py-2 font-mono text-ctp-text">
+            <code className="flex-1 rounded bg-ctp-crust px-3 py-2 font-mono break-all text-ctp-text">
               {createdCode}
             </code>
             <Button variant="secondary" onClick={() => void copy(createdCode)}>

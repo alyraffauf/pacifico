@@ -13,38 +13,48 @@ function json(body: unknown, status = 200): Response {
 
 describe("SSO registration", () => {
   it("submits the DID choice accepted by Tranquil", async () => {
-    window.history.replaceState({}, "", "/app/oauth/sso-register?token=test-token");
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
-      if (url.startsWith("/oauth/sso/pending-registration?")) {
-        return json({
-          request_uri: "urn:request:test",
-          provider: "oidc",
-          provider_username: "alice",
-          provider_email: "alice@example.com",
-          provider_email_verified: true,
-        });
-      }
-      if (url === "/xrpc/com.atproto.server.describeServer") {
-        return json({
-          availableUserDomains: ["pds.test"],
-          inviteCodeRequired: false,
-          availableCommsChannels: ["email"],
-          selfHostedDidWebEnabled: true,
-        });
-      }
-      if (url.startsWith("/oauth/sso/check-handle-available?")) return json({ available: true });
-      if (url === "/oauth/sso/complete-registration" && init?.method === "POST") {
-        return json({
-          did: "did:web:example.com",
-          handle: "alice.pds.test",
-          redirectUrl: "/app/verify",
-          appPassword: "test-password",
-          appPasswordName: "migration",
-        });
-      }
-      throw new Error(`Unexpected request: ${url}`);
-    });
+    window.history.replaceState(
+      {},
+      "",
+      "/app/oauth/sso-register?token=test-token",
+    );
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.startsWith("/oauth/sso/pending-registration?")) {
+          return json({
+            request_uri: "urn:request:test",
+            provider: "oidc",
+            provider_username: "alice",
+            provider_email: "alice@example.com",
+            provider_email_verified: true,
+          });
+        }
+        if (url === "/xrpc/com.atproto.server.describeServer") {
+          return json({
+            availableUserDomains: ["pds.test"],
+            inviteCodeRequired: false,
+            availableCommsChannels: ["email"],
+            selfHostedDidWebEnabled: true,
+          });
+        }
+        if (url.startsWith("/oauth/sso/check-handle-available?"))
+          return json({ available: true });
+        if (
+          url === "/oauth/sso/complete-registration" &&
+          init?.method === "POST"
+        ) {
+          return json({
+            did: "did:web:example.com",
+            handle: "alice.pds.test",
+            redirectUrl: "/app/verify",
+            appPassword: "test-password",
+            appPasswordName: "migration",
+          });
+        }
+        throw new Error(`Unexpected request: ${url}`);
+      },
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     render(
@@ -54,18 +64,28 @@ describe("SSO registration", () => {
     );
 
     const user = userEvent.setup();
-    await user.selectOptions(await screen.findByLabelText("DID type"), "web-external");
-    await user.type(screen.getByLabelText("Existing DID"), "did:web:example.com");
+    await user.selectOptions(
+      await screen.findByLabelText("DID type"),
+      "web-external",
+    );
+    await user.type(
+      screen.getByLabelText("Existing DID"),
+      "did:web:example.com",
+    );
     await user.click(screen.getByRole("button", { name: "Create account" }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      "/oauth/sso/complete-registration",
-      expect.objectContaining({
-        method: "POST",
-        body: expect.stringContaining('"did_type":"web-external"'),
-      }),
-    ));
-    const request = fetchMock.mock.calls.find(([input]) => input === "/oauth/sso/complete-registration");
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/oauth/sso/complete-registration",
+        expect.objectContaining({
+          method: "POST",
+          body: expect.stringContaining('"did_type":"web-external"'),
+        }),
+      ),
+    );
+    const request = fetchMock.mock.calls.find(
+      ([input]) => input === "/oauth/sso/complete-registration",
+    );
     expect(JSON.parse(String(request?.[1]?.body))).toMatchObject({
       did_type: "web-external",
       did: "did:web:example.com",

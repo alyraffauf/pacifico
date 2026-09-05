@@ -57,7 +57,7 @@ export function LoginPage() {
 
         {auth.savedAccounts.length > 0 ? (
           <div className="grid gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ctp-overlay-1">
+            <p className="text-xs font-semibold tracking-wide text-ctp-overlay-1 uppercase">
               {t("login.chooseAccount")}
             </p>
             {auth.savedAccounts.map((account) => (

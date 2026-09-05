@@ -66,4 +66,3 @@ export function unsafeAsInviteCode(s: string): InviteCode {
 export function unsafeAsScopeSet(s: string): ScopeSet {
   return s as ScopeSet;
 }
-

@@ -15,8 +15,10 @@ export function getChangedMessagingUsernames(
   saved: MessagingUsernames,
 ): ChangedMessagingUsernames {
   const changed: ChangedMessagingUsernames = {};
-  if (current.discord !== saved.discord) changed.discordUsername = current.discord;
-  if (current.telegram !== saved.telegram) changed.telegramUsername = current.telegram;
+  if (current.discord !== saved.discord)
+    changed.discordUsername = current.discord;
+  if (current.telegram !== saved.telegram)
+    changed.telegramUsername = current.telegram;
   if (current.signal !== saved.signal) changed.signalUsername = current.signal;
   return changed;
 }

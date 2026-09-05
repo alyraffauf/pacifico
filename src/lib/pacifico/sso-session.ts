@@ -7,7 +7,9 @@ export interface SsoRegistrationSession {
   refreshJwt?: string;
 }
 
-export function persistSsoRegistrationSession(result: SsoRegistrationSession): boolean {
+export function persistSsoRegistrationSession(
+  result: SsoRegistrationSession,
+): boolean {
   if (!result.accessJwt || !result.refreshJwt) return false;
   setSession({
     did: result.did,

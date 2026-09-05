@@ -34,10 +34,16 @@ export function ActAsPage() {
 
     void (async () => {
       if (!delegatedDid) throw new Error("No delegated account was specified.");
-      const accountsResult = await createAuthenticatedClient(session).listDelegationControlledAccounts();
+      const accountsResult =
+        await createAuthenticatedClient(
+          session,
+        ).listDelegationControlledAccounts();
       if (!accountsResult.ok) throw accountsResult.error;
-      const account = accountsResult.value.accounts.find((candidate) => candidate.did === delegatedDid);
-      if (!account) throw new Error("You do not have access to that delegated account.");
+      const account = accountsResult.value.accounts.find(
+        (candidate) => candidate.did === delegatedDid,
+      );
+      if (!account)
+        throw new Error("You do not have access to that delegated account.");
 
       const state = generateState();
       const codeVerifier = generateCodeVerifier();
@@ -56,9 +62,11 @@ export function ActAsPage() {
           login_hint: account.handle ?? account.did,
         }),
       });
-      if (!parResponse.ok) throw new Error("The delegated sign-in request was rejected.");
-      const par = await parResponse.json() as { request_uri?: string };
-      if (!par.request_uri) throw new Error("The server returned an invalid sign-in request.");
+      if (!parResponse.ok)
+        throw new Error("The delegated sign-in request was rejected.");
+      const par = (await parResponse.json()) as { request_uri?: string };
+      if (!par.request_uri)
+        throw new Error("The server returned an invalid sign-in request.");
 
       const endpoint = `${globalThis.location.origin}/oauth/delegation/auth-token`;
       async function authorize(retry: boolean): Promise<Response> {
@@ -67,9 +75,16 @@ export function ActAsPage() {
           headers: {
             authorization: `DPoP ${session.accessJwt}`,
             "content-type": "application/json",
-            dpop: await createDPoPProofForRequest("POST", endpoint, session.accessJwt),
+            dpop: await createDPoPProofForRequest(
+              "POST",
+              endpoint,
+              session.accessJwt,
+            ),
           },
-          body: JSON.stringify({ request_uri: par.request_uri, delegated_did: delegatedDid }),
+          body: JSON.stringify({
+            request_uri: par.request_uri,
+            delegated_did: delegatedDid,
+          }),
         });
         const nonce = response.headers.get("DPoP-Nonce");
         if (!response.ok && retry && nonce) {
@@ -80,13 +95,45 @@ export function ActAsPage() {
       }
 
       const response = await authorize(true);
-      const result = await response.json() as DelegationAuthResponse;
-      if (!response.ok || !result.success || !result.redirect_uri) throw new Error(result.error ?? "Could not start delegated sign-in.");
+      const result = (await response.json()) as DelegationAuthResponse;
+      if (!response.ok || !result.success || !result.redirect_uri)
+        throw new Error(result.error ?? "Could not start delegated sign-in.");
       globalThis.location.assign(result.redirect_uri);
-    })().catch((caught) => setError(caught instanceof Error ? caught.message : "Could not start delegated sign-in."));
+    })().catch((caught) =>
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not start delegated sign-in.",
+      ),
+    );
   }, [auth, params]);
 
-  if (auth.kind === "loading") return <AuthLayout title="Preparing delegated sign-in"><Loading /></AuthLayout>;
-  if (auth.kind !== "authenticated") return <Navigate to="/app/login" replace />;
-  return <AuthLayout title="Preparing delegated sign-in" description="Checking access and opening the selected account.">{error ? <><Alert tone="error">{error}</Alert><Link className="mt-5 block text-center text-sm" to="/app/controllers">Back to delegation</Link></> : <Loading label="Preparing account" />}</AuthLayout>;
+  if (auth.kind === "loading")
+    return (
+      <AuthLayout title="Preparing delegated sign-in">
+        <Loading />
+      </AuthLayout>
+    );
+  if (auth.kind !== "authenticated")
+    return <Navigate to="/app/login" replace />;
+  return (
+    <AuthLayout
+      title="Preparing delegated sign-in"
+      description="Checking access and opening the selected account."
+    >
+      {error ? (
+        <>
+          <Alert tone="error">{error}</Alert>
+          <Link
+            className="mt-5 block text-center text-sm"
+            to="/app/controllers"
+          >
+            Back to delegation
+          </Link>
+        </>
+      ) : (
+        <Loading label="Preparing account" />
+      )}
+    </AuthLayout>
+  );
 }

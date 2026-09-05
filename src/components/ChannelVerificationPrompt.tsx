@@ -1,7 +1,13 @@
 import { useEffect, useRef } from "react";
-import type { ServerDescription, VerificationChannel } from "../lib/types/api.ts";
+import type {
+  ServerDescription,
+  VerificationChannel,
+} from "../lib/types/api.ts";
 
-export type ChannelVerificationServer = Pick<ServerDescription, "discordAppId" | "discordBotUsername" | "telegramBotUsername">;
+export type ChannelVerificationServer = Pick<
+  ServerDescription,
+  "discordAppId" | "discordBotUsername" | "telegramBotUsername"
+>;
 
 interface ChannelVerificationPromptProps {
   channel: VerificationChannel;
@@ -53,7 +59,11 @@ export function useBotVerificationPolling(
   }, [enabled]);
 }
 
-export function ChannelVerificationPrompt({ channel, handle, server }: ChannelVerificationPromptProps) {
+export function ChannelVerificationPrompt({
+  channel,
+  handle,
+  server,
+}: ChannelVerificationPromptProps) {
   if (channel === "telegram") {
     const encodedHandle = handle.replaceAll(".", "_");
     return (
@@ -68,7 +78,13 @@ export function ChannelVerificationPrompt({ channel, handle, server }: ChannelVe
           </a>
         ) : null}
         <p>
-          Send <code>/start {handle}</code> to {server.telegramBotUsername ? <code>@{server.telegramBotUsername}</code> : "the configured Telegram bot"}.
+          Send <code>/start {handle}</code> to{" "}
+          {server.telegramBotUsername ? (
+            <code>@{server.telegramBotUsername}</code>
+          ) : (
+            "the configured Telegram bot"
+          )}
+          .
         </p>
         <p className="text-ctp-overlay-1">Waiting for verification...</p>
       </div>
@@ -88,7 +104,8 @@ export function ChannelVerificationPrompt({ channel, handle, server }: ChannelVe
           </a>
         ) : null}
         <p>
-          Or send <code>/start {handle}</code> to <strong>{server.discordBotUsername ?? "the bot"}</strong>.
+          Or send <code>/start {handle}</code> to{" "}
+          <strong>{server.discordBotUsername ?? "the bot"}</strong>.
         </p>
         <p className="text-ctp-overlay-1">Waiting for verification...</p>
       </div>

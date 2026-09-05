@@ -74,9 +74,9 @@ const importJwk = async (
 
   if (jwk.kty !== "EC") {
     throw new Error(
-      `Unsupported JWK key type: ${
-        String(jwk.kty)
-      }. Only EC keys are supported`,
+      `Unsupported JWK key type: ${String(
+        jwk.kty,
+      )}. Only EC keys are supported`,
     );
   }
 
@@ -94,9 +94,9 @@ const importJwk = async (
         return "p256";
       default:
         throw new Error(
-          `Unsupported JWK curve: ${
-            String(jwk.crv)
-          }. Expected secp256k1 or P-256`,
+          `Unsupported JWK curve: ${String(
+            jwk.crv,
+          )}. Expected secp256k1 or P-256`,
         );
     }
   })();
@@ -214,9 +214,10 @@ export class PlcOps {
     return lastOperation.rotationKeys || [];
   }
 
-  async createNewSecp256k1Keypair(): Promise<
-    { privateKey: string; publicKey: `did:key:${string}` }
-  > {
+  async createNewSecp256k1Keypair(): Promise<{
+    privateKey: string;
+    publicKey: `did:key:${string}`;
+  }> {
     const keypair = await Secp256k1PrivateKeyExportable.createKeypair();
     const publicKey = await keypair.exportPublicKey("did");
     const privateKey = await keypair.exportPrivateKey("multikey");
@@ -270,7 +271,7 @@ export class PlcOps {
     }
     return (
       candidates.find((info) =>
-        acceptableDidKeys.includes(info.didPublicKey)
+        acceptableDidKeys.includes(info.didPublicKey),
       ) ?? null
     );
   }
@@ -337,7 +338,8 @@ export class PlcOps {
       if (contentType?.includes("application/json")) {
         const json = await response.json();
         if (
-          typeof json === "object" && json !== null &&
+          typeof json === "object" &&
+          json !== null &&
           typeof json.message === "string"
         ) {
           throw new Error(json.message);

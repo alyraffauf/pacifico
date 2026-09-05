@@ -62,24 +62,24 @@ type AuthStateKind = "unauthenticated" | "loading" | "authenticated" | "error";
 
 export type AuthState =
   | {
-    readonly kind: "unauthenticated";
-    readonly savedAccounts: readonly SavedAccount[];
-  }
+      readonly kind: "unauthenticated";
+      readonly savedAccounts: readonly SavedAccount[];
+    }
   | {
-    readonly kind: "loading";
-    readonly savedAccounts: readonly SavedAccount[];
-    readonly previousSession: Session | null;
-  }
+      readonly kind: "loading";
+      readonly savedAccounts: readonly SavedAccount[];
+      readonly previousSession: Session | null;
+    }
   | {
-    readonly kind: "authenticated";
-    readonly session: Session;
-    readonly savedAccounts: readonly SavedAccount[];
-  }
+      readonly kind: "authenticated";
+      readonly session: Session;
+      readonly savedAccounts: readonly SavedAccount[];
+    }
   | {
-    readonly kind: "error";
-    readonly error: AuthError;
-    readonly savedAccounts: readonly SavedAccount[];
-  };
+      readonly kind: "error";
+      readonly error: AuthError;
+      readonly savedAccounts: readonly SavedAccount[];
+    };
 
 function createUnauthenticated(
   savedAccounts: readonly SavedAccount[],
@@ -388,9 +388,8 @@ export async function login(
   password: string,
 ): Promise<Result<Session, AuthError>> {
   const currentState = state.current;
-  const previousSession = currentState.kind === "authenticated"
-    ? currentState.session
-    : null;
+  const previousSession =
+    currentState.kind === "authenticated" ? currentState.session : null;
   setLoading(previousSession);
 
   try {
@@ -660,7 +659,9 @@ export function matchAuthState<T>(handlers: {
     case "error":
       return handlers.error(current.error, current.savedAccounts);
     default:
-      throw new Error(`Unexpected auth state: ${(current as { kind: string }).kind}`);
+      throw new Error(
+        `Unexpected auth state: ${(current as { kind: string }).kind}`,
+      );
   }
 }
 

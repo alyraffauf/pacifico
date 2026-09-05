@@ -408,7 +408,7 @@ export function SettingsPage() {
           </form>
           <dl className="mt-6 border-t border-ctp-surface-0 pt-4 text-sm">
             <dt className="text-ctp-overlay-1">DID</dt>
-            <dd className="mt-1 break-all font-mono text-xs text-ctp-subtext-1">
+            <dd className="mt-1 font-mono text-xs break-all text-ctp-subtext-1">
               {session.did}
             </dd>
           </dl>

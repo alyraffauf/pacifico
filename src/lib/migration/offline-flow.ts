@@ -5,10 +5,7 @@ import type {
   OfflineInboundStep,
   ServerDescription,
 } from "./types.ts";
-import {
-  AtprotoClient,
-  createLocalClient,
-} from "./atproto-client.ts";
+import { AtprotoClient, createLocalClient } from "./atproto-client.ts";
 import { createPasskeyCredential } from "../flows/perform-passkey-registration.ts";
 import { api } from "../api.ts";
 import { type KeypairInfo, plcOps, type PrivateKey } from "./plc-ops.ts";
@@ -72,7 +69,9 @@ function saveOfflineState(state: OfflineInboundMigrationState): void {
   };
   try {
     localStorage.setItem(OFFLINE_STORAGE_KEY, JSON.stringify(stored));
-  } catch { /* ignore localStorage errors */ }
+  } catch {
+    /* ignore localStorage errors */
+  }
 }
 
 function loadOfflineState(): StoredOfflineMigrationState | null {
@@ -100,7 +99,9 @@ function loadOfflineState(): StoredOfflineMigrationState | null {
 function clearOfflineState(): void {
   try {
     localStorage.removeItem(OFFLINE_STORAGE_KEY);
-  } catch { /* ignore localStorage errors */ }
+  } catch {
+    /* ignore localStorage errors */
+  }
 }
 
 export function hasPendingOfflineMigration(): boolean {
@@ -243,10 +244,10 @@ export function createOfflineInboundMigrationFlow() {
 
     setProgress({ currentOperation: "Preparing temporary credentials..." });
 
-    tempVerificationKeypair = await Secp256k1PrivateKeyExportable
-      .createKeypair();
-    const tempVerificationPublicKey = await tempVerificationKeypair
-      .exportPublicKey("did");
+    tempVerificationKeypair =
+      await Secp256k1PrivateKeyExportable.createKeypair();
+    const tempVerificationPublicKey =
+      await tempVerificationKeypair.exportPublicKey("did");
 
     const { lastOperation, base } = await plcOps.getLastPlcOpFromPlc(
       state.userDid,
@@ -319,16 +320,19 @@ export function createOfflineInboundMigrationFlow() {
       ? state.targetHandle
       : `${state.targetHandle}.${serverInfo.availableUserDomains[0]}`;
 
-    const createResult = await api.createPasskeyAccount({
-      did: unsafeAsDid(state.userDid),
-      handle: unsafeAsHandle(fullHandle),
-      email: state.targetEmail ? unsafeAsEmail(state.targetEmail) : undefined,
-      inviteCode: state.inviteCode || undefined,
-      verificationChannel: state.verificationChannel,
-      discordUsername: state.discordUsername || undefined,
-      telegramUsername: state.telegramUsername || undefined,
-      signalUsername: state.signalUsername || undefined,
-    }, serviceAuthToken);
+    const createResult = await api.createPasskeyAccount(
+      {
+        did: unsafeAsDid(state.userDid),
+        handle: unsafeAsHandle(fullHandle),
+        email: state.targetEmail ? unsafeAsEmail(state.targetEmail) : undefined,
+        inviteCode: state.inviteCode || undefined,
+        verificationChannel: state.verificationChannel,
+        discordUsername: state.discordUsername || undefined,
+        telegramUsername: state.telegramUsername || undefined,
+        signalUsername: state.signalUsername || undefined,
+      },
+      serviceAuthToken,
+    );
 
     state.targetHandle = fullHandle;
     state.passkeySetupToken = createResult.setupToken;
@@ -416,13 +420,11 @@ export function createOfflineInboundMigrationFlow() {
       setProgress({ currentOperation: "No blobs to migrate" });
     } else if (result.sourceUnreachable) {
       setProgress({
-        currentOperation:
-          `Source PDS unreachable. ${result.failed.length} blobs could not be migrated.`,
+        currentOperation: `Source PDS unreachable. ${result.failed.length} blobs could not be migrated.`,
       });
     } else if (result.failed.length > 0) {
       setProgress({
-        currentOperation:
-          `${result.migrated}/${result.total} blobs migrated. ${result.failed.length} failed.`,
+        currentOperation: `${result.migrated}/${result.total} blobs migrated. ${result.failed.length} failed.`,
       });
     } else {
       setProgress({
@@ -542,8 +544,8 @@ export function createOfflineInboundMigrationFlow() {
       throw new Error("No passkey setup token");
     }
 
-    const credential = await createPasskeyCredential(
-      () => startPasskeyRegistration(),
+    const credential = await createPasskeyCredential(() =>
+      startPasskeyRegistration(),
     );
 
     const result = await api.completePasskeySetup(
@@ -604,7 +606,8 @@ export function createOfflineInboundMigrationFlow() {
       await migrateBlobs();
 
       if (
-        state.progress.blobsTotal > 0 || state.progress.blobsFailed.length > 0
+        state.progress.blobsTotal > 0 ||
+        state.progress.blobsFailed.length > 0
       ) {
         await new Promise((resolve) => setTimeout(resolve, 3000));
       }
@@ -683,9 +686,11 @@ export function createOfflineInboundMigrationFlow() {
     return true;
   }
 
-  function getLocalSession():
-    | { accessJwt: string; did: string; handle: string }
-    | null {
+  function getLocalSession(): {
+    accessJwt: string;
+    did: string;
+    handle: string;
+  } | null {
     if (!state.localAccessToken) return null;
     return {
       accessJwt: state.localAccessToken,

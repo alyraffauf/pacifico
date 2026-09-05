@@ -18,11 +18,22 @@ export default defineConfig(({ mode }) => {
       {
         name: "development-oauth-client-metadata",
         configureServer(server) {
-          server.middlewares.use("/oauth-client-metadata.json", (request, response) => {
-            const hostname = request.headers.host ?? "localhost:5173";
-            response.setHeader("content-type", "application/json; charset=utf-8");
-            response.end(oauthClientMetadata.replaceAll("__FRONTEND_HOSTNAME__", hostname));
-          });
+          server.middlewares.use(
+            "/oauth-client-metadata.json",
+            (request, response) => {
+              const hostname = request.headers.host ?? "localhost:5173";
+              response.setHeader(
+                "content-type",
+                "application/json; charset=utf-8",
+              );
+              response.end(
+                oauthClientMetadata.replaceAll(
+                  "__FRONTEND_HOSTNAME__",
+                  hostname,
+                ),
+              );
+            },
+          );
         },
       },
     ],

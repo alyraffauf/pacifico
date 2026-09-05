@@ -2,7 +2,10 @@ import { readJson } from "../http.ts";
 
 export async function denyAuthorization(
   requestUri: string,
-  send: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> = fetch,
+  send: (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => Promise<Response> = fetch,
 ): Promise<string> {
   const response = await send("/oauth/authorize/deny", {
     method: "POST",

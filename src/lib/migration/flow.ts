@@ -529,7 +529,9 @@ export function createInboundMigrationFlow() {
       setStep("email-verify");
     } catch (e) {
       const err = e as Error & { error?: string; status?: number };
-      const message = err.message || err.error ||
+      const message =
+        err.message ||
+        err.error ||
         `Unknown error (status ${err.status || "unknown"})`;
       migrationLog("startMigration FAILED", {
         error: message,
@@ -592,7 +594,9 @@ export function createInboundMigrationFlow() {
       const prefs = await sourceClient.getPreferences();
       await localClient.putPreferences(prefs);
       setProgress({ prefsMigrated: true });
-    } catch { /* optional, best-effort */ }
+    } catch {
+      /* optional, best-effort */
+    }
   }
 
   async function submitEmailVerifyToken(
@@ -647,7 +651,9 @@ export function createInboundMigrationFlow() {
       }
     } catch (e) {
       const err = e as Error & { error?: string; status?: number };
-      const message = err.message || err.error ||
+      const message =
+        err.message ||
+        err.error ||
         `Unknown error (status ${err.status || "unknown"})`;
       setError(message);
     }
@@ -811,7 +817,9 @@ export function createInboundMigrationFlow() {
       clearMigrationState();
     } catch (e) {
       const err = e as Error & { error?: string; status?: number };
-      const message = err.message || err.error ||
+      const message =
+        err.message ||
+        err.error ||
         `Unknown error (status ${err.status || "unknown"})`;
       migrationLog("submitPlcToken FAILED", {
         error: message,
@@ -885,7 +893,9 @@ export function createInboundMigrationFlow() {
       clearMigrationState();
     } catch (e) {
       const err = e as Error & { error?: string; status?: number };
-      const message = err.message || err.error ||
+      const message =
+        err.message ||
+        err.error ||
         `Unknown error (status ${err.status || "unknown"})`;
       migrationLog("completeDidWebMigration FAILED", { error: message });
       setError(message);
@@ -1044,9 +1054,11 @@ export function createInboundMigrationFlow() {
     }
   }
 
-  function getLocalSession():
-    | { accessJwt: string; did: string; handle: string }
-    | null {
+  function getLocalSession(): {
+    accessJwt: string;
+    did: string;
+    handle: string;
+  } | null {
     if (!localClient) return null;
     const token = localClient.getAccessToken();
     if (!token) return null;

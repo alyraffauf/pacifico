@@ -38,7 +38,9 @@ export function saveMigrationState(state: MigrationState): void {
 
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(storedState));
-  } catch { /* localStorage unavailable */ }
+  } catch {
+    /* localStorage unavailable */
+  }
 }
 
 export function loadMigrationState(): StoredMigrationState | null {
@@ -70,7 +72,9 @@ export function clearMigrationState(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);
     clearDPoPKey();
-  } catch { /* localStorage unavailable */ }
+  } catch {
+    /* localStorage unavailable */
+  }
 }
 
 export function hasPendingMigration(): boolean {
@@ -110,9 +114,8 @@ export function getResumeInfo(): {
     targetPdsUrl: state.targetPdsUrl,
     targetEmail: state.targetEmail,
     authMethod: state.authMethod,
-    progressSummary: progressParts.length > 0
-      ? progressParts.join(", ")
-      : "just started",
+    progressSummary:
+      progressParts.length > 0 ? progressParts.join(", ") : "just started",
     step: state.step,
   };
 }
@@ -126,7 +129,9 @@ export function updateProgress(
   state.progress = { ...state.progress, ...updates };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch { /* localStorage unavailable */ }
+  } catch {
+    /* localStorage unavailable */
+  }
 }
 
 export function updateStep(step: string): void {
@@ -136,7 +141,9 @@ export function updateStep(step: string): void {
   state.step = step;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch { /* localStorage unavailable */ }
+  } catch {
+    /* localStorage unavailable */
+  }
 }
 
 export function setError(error: string, step: string): void {
@@ -147,5 +154,7 @@ export function setError(error: string, step: string): void {
   state.lastErrorStep = step;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch { /* localStorage unavailable */ }
+  } catch {
+    /* localStorage unavailable */
+  }
 }

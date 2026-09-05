@@ -1,9 +1,13 @@
 import type { ServerDescription } from "../types/api.ts";
 
-export function pdsEndpointFromDid(serverDid: string, fallbackHostname: string): string {
+export function pdsEndpointFromDid(
+  serverDid: string,
+  fallbackHostname: string,
+): string {
   if (serverDid.startsWith("did:web:")) {
     const encodedAuthority = serverDid.slice("did:web:".length).split(":")[0];
-    if (encodedAuthority) return `https://${decodeURIComponent(encodedAuthority)}`;
+    if (encodedAuthority)
+      return `https://${decodeURIComponent(encodedAuthority)}`;
   }
 
   return `https://${fallbackHostname}`;

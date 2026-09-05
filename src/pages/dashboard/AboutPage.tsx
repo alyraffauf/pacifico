@@ -28,7 +28,7 @@ function AboutSection({ title, rows }: { title: string; rows: AboutRow[] }) {
               className="grid gap-1 px-5 py-4 sm:grid-cols-[11rem_1fr]"
             >
               <dt className="font-semibold text-ctp-subtext-0">{row.label}</dt>
-              <dd className="break-all font-mono text-ctp-text">
+              <dd className="font-mono break-all text-ctp-text">
                 {row.href ? (
                   <a href={row.href} target="_blank" rel="noopener noreferrer">
                     {row.value}

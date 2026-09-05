@@ -227,11 +227,13 @@ export class AtprotoClient {
         message: res.statusText,
       }));
 
-      const isTokenExpired = (res.status === 401 || res.status === 400) &&
-        (err.error === "ExpiredToken" || err.error === "invalid_token" ||
+      const isTokenExpired =
+        (res.status === 401 || res.status === 400) &&
+        (err.error === "ExpiredToken" ||
+          err.error === "invalid_token" ||
           (err.message && err.message.includes("expired")));
 
-      if (isTokenExpired && !authToken && await this.tryRefreshToken()) {
+      if (isTokenExpired && !authToken && (await this.tryRefreshToken())) {
         const retryNonce = res.headers.get("DPoP-Nonce") ?? this.dpopNonce;
         if (retryNonce) this.dpopNonce = retryNonce;
         res = await makeRequest(this.dpopNonce ?? undefined);
@@ -260,20 +262,18 @@ export class AtprotoClient {
         }));
         const retryError = new Error(
           retryErr.message || retryErr.error || res.statusText,
-        ) as
-          & Error
-          & { status: number; error: string };
+        ) as Error & { status: number; error: string };
         retryError.status = res.status;
         retryError.error = retryErr.error;
         throw retryError;
       }
 
-      const error = new Error(err.message || err.error || res.statusText) as
-        & Error
-        & {
-          status: number;
-          error: string;
-        };
+      const error = new Error(
+        err.message || err.error || res.statusText,
+      ) as Error & {
+        status: number;
+        error: string;
+      };
       error.status = res.status;
       error.error = err.error;
       throw error;
@@ -330,10 +330,7 @@ export class AtprotoClient {
     return this.xrpc<ServerDescription>("com.atproto.server.describeServer");
   }
 
-  getServiceAuth(
-    aud: string,
-    lxm?: string,
-  ): Promise<{ token: string }> {
+  getServiceAuth(aud: string, lxm?: string): Promise<{ token: string }> {
     const params: Record<string, string> = { aud };
     if (lxm) {
       params.lxm = lxm;
@@ -369,9 +366,9 @@ export class AtprotoClient {
     did: string,
     cid: string,
   ): Promise<{ data: Uint8Array; contentType: string }> {
-    const url = `${this.baseUrl}/xrpc/com.atproto.sync.getBlob?did=${
-      encodeURIComponent(did)
-    }&cid=${encodeURIComponent(cid)}`;
+    const url = `${this.baseUrl}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(
+      did,
+    )}&cid=${encodeURIComponent(cid)}`;
     const headers: Record<string, string> = {};
     if (this.accessToken) {
       if (this.dpopKeyPair) {
@@ -401,8 +398,8 @@ export class AtprotoClient {
       }));
       throw new Error(err.message || err.error || res.statusText);
     }
-    const contentType = res.headers.get("content-type") ||
-      "application/octet-stream";
+    const contentType =
+      res.headers.get("content-type") || "application/octet-stream";
     const data = new Uint8Array(await res.arrayBuffer());
     return { data, contentType };
   }
@@ -454,12 +451,12 @@ export class AtprotoClient {
         error: "Unknown",
         message: res.statusText,
       }));
-      const error = new Error(err.message || err.error || res.statusText) as
-        & Error
-        & {
-          status: number;
-          error: string;
-        };
+      const error = new Error(
+        err.message || err.error || res.statusText,
+      ) as Error & {
+        status: number;
+        error: string;
+      };
       error.status = res.status;
       error.error = err.error;
       throw error;
@@ -482,9 +479,10 @@ export class AtprotoClient {
   async listMissingBlobs(
     cursor?: string,
     limit = 100,
-  ): Promise<
-    { blobs: Array<{ cid: string; recordUri: string }>; cursor?: string }
-  > {
+  ): Promise<{
+    blobs: Array<{ cid: string; recordUri: string }>;
+    cursor?: string;
+  }> {
     const params: Record<string, string> = { limit: String(limit) };
     if (cursor) {
       params.cursor = cursor;
@@ -554,10 +552,7 @@ export class AtprotoClient {
   }
 
   async deactivateAccount(): Promise<void> {
-    apiLog(
-      "POST",
-      `${this.baseUrl}/xrpc/com.atproto.server.deactivateAccount`,
-    );
+    apiLog("POST", `${this.baseUrl}/xrpc/com.atproto.server.deactivateAccount`);
     const start = Date.now();
     try {
       await this.xrpc("com.atproto.server.deactivateAccount", {
@@ -624,10 +619,7 @@ export class AtprotoClient {
     return result.verified;
   }
 
-  async checkChannelVerified(
-    did: string,
-    channel: string,
-  ): Promise<boolean> {
+  async checkChannelVerified(did: string, channel: string): Promise<boolean> {
     const result = await this.xrpc<{ verified: boolean }>(
       "_checkChannelVerified",
       {
@@ -641,9 +633,12 @@ export class AtprotoClient {
   async verifyToken(
     token: string,
     identifier: string,
-  ): Promise<
-    { success: boolean; did: string; purpose: string; channel: string }
-  > {
+  ): Promise<{
+    success: boolean;
+    did: string;
+    purpose: string;
+    channel: string;
+  }> {
     return this.xrpc("_account.verifyToken", {
       httpMethod: "POST",
       body: { token, identifier },
@@ -695,12 +690,12 @@ export class AtprotoClient {
         error: "Unknown",
         message: res.statusText,
       }));
-      const error = new Error(err.message || err.error || res.statusText) as
-        & Error
-        & {
-          status: number;
-          error: string;
-        };
+      const error = new Error(
+        err.message || err.error || res.statusText,
+      ) as Error & {
+        status: number;
+        error: string;
+      };
       error.status = res.status;
       error.error = err.error;
       throw error;
@@ -743,8 +738,7 @@ export async function getOAuthServerMetadata(
       return directRes.json();
     }
 
-    const protectedResourceUrl =
-      `${pdsUrl}/.well-known/oauth-protected-resource`;
+    const protectedResourceUrl = `${pdsUrl}/.well-known/oauth-protected-resource`;
     const protectedRes = await fetch(protectedResourceUrl);
     if (!protectedRes.ok) {
       return null;
@@ -775,10 +769,10 @@ function base64UrlEncode(buffer: Uint8Array | ArrayBuffer): string {
   const binary = Array.from(bytes, (byte) => String.fromCharCode(byte)).join(
     "",
   );
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(
-    /=+$/,
-    "",
-  );
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }
 
 async function computeAccessTokenHash(accessToken: string): Promise<string> {
@@ -930,7 +924,8 @@ export async function exchangeOAuthCode(
             error_description: res.statusText,
           }));
           throw new Error(
-            retryErr.error_description || retryErr.error ||
+            retryErr.error_description ||
+              retryErr.error ||
               "Token exchange failed",
           );
         }
@@ -973,7 +968,7 @@ export async function refreshSourceOAuthToken(
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        "DPoP": dpopProof,
+        DPoP: dpopProof,
       },
       body: body.toString(),
     });
@@ -997,7 +992,8 @@ export async function refreshSourceOAuthToken(
             error_description: res.statusText,
           }));
           throw new Error(
-            retryErr.error_description || retryErr.error ||
+            retryErr.error_description ||
+              retryErr.error ||
               "Token refresh failed",
           );
         }
@@ -1050,9 +1046,9 @@ export async function resolvePdsUrl(
 
     if (handle.endsWith(".bsky.social")) {
       const res = await fetch(
-        `https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=${
-          encodeURIComponent(handle)
-        }`,
+        `https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(
+          handle,
+        )}`,
       );
       if (!res.ok) {
         throw new Error(`Failed to resolve handle: ${res.statusText}`);

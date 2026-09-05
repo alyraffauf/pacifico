@@ -186,16 +186,16 @@ async function xrpc<T>(method: string, options?: XrpcOptions): Promise<T> {
   }
   const res = token
     ? await authenticatedFetch(url, {
-      method: httpMethod,
-      token,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-    })
+        method: httpMethod,
+        token,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+      })
     : await fetch(url, {
-      method: httpMethod,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-    });
+        method: httpMethod,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+      });
   if (!res.ok) {
     const errData = await res.json().catch(() => ({
       error: "Unknown",
@@ -224,9 +224,10 @@ async function xrpc<T>(method: string, options?: XrpcOptions): Promise<T> {
         return xrpc(method, { ...options, token: newToken, skipRetry: true });
       }
     }
-    const message = res.status === 429
-      ? (errData.message || "Too many requests. Please try again later.")
-      : errData.message;
+    const message =
+      res.status === 429
+        ? errData.message || "Too many requests. Please try again later."
+        : errData.message;
     throw new ApiError(
       res.status,
       errData.error as ApiErrorCode,
@@ -266,8 +267,7 @@ export type { DidType, VerificationChannel };
 
 function buildContactState(s: Record<string, unknown>): ContactState {
   const preferredChannel = s.preferredChannel as
-    | VerificationChannel
-    | undefined;
+    VerificationChannel | undefined;
   const email = s.email ? unsafeAsEmail(s.email as string) : undefined;
 
   if (preferredChannel) {
@@ -369,13 +369,14 @@ function _castDelegationAuditEntry(raw: unknown): DelegationAuditEntry {
   const e = raw as Record<string, unknown>;
   const actorDid = (e.actor_did ?? e.actorDid) as string;
   const targetDid = (e.target_did ?? e.targetDid ?? e.delegatedDid) as
-    | string
-    | undefined;
+    string | undefined;
   const createdAt = (e.created_at ?? e.createdAt) as string;
   const action = (e.action ?? e.actionType) as string;
   const details = e.details ?? e.actionDetails;
   const detailsStr = details
-    ? (typeof details === "string" ? details : JSON.stringify(details))
+    ? typeof details === "string"
+      ? details
+      : JSON.stringify(details)
     : undefined;
   return {
     id: e.id as string,
@@ -457,7 +458,7 @@ export const api = {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${serviceAuthToken}`,
+        Authorization: `Bearer ${serviceAuthToken}`,
       },
       body: JSON.stringify({
         did: params.did,
@@ -526,7 +527,6 @@ export const api = {
       body: { email },
     });
   },
-
 
   async getSession(token: AccessToken): Promise<Session> {
     const raw = await xrpc<unknown>("com.atproto.server.getSession", { token });
@@ -675,12 +675,15 @@ export const api = {
     return xrpc("_account.getNotificationPrefs", { token });
   },
 
-  updateNotificationPrefs(token: AccessToken, prefs: {
-    preferredChannel?: string;
-    discordUsername?: string;
-    telegramUsername?: string;
-    signalUsername?: string;
-  }): Promise<UpdateNotificationPrefsResponse> {
+  updateNotificationPrefs(
+    token: AccessToken,
+    prefs: {
+      preferredChannel?: string;
+      discordUsername?: string;
+      telegramUsername?: string;
+      signalUsername?: string;
+    },
+  ): Promise<UpdateNotificationPrefsResponse> {
     return xrpc("_account.updateNotificationPrefs", {
       method: "POST",
       token,
@@ -844,11 +847,14 @@ export const api = {
     });
   },
 
-  searchAccounts(token: AccessToken, options?: {
-    handle?: string;
-    cursor?: string;
-    limit?: number;
-  }): Promise<SearchAccountsResponse> {
+  searchAccounts(
+    token: AccessToken,
+    options?: {
+      handle?: string;
+      cursor?: string;
+      limit?: number;
+    },
+  ): Promise<SearchAccountsResponse> {
     const params: Record<string, string> = {};
     if (options?.handle) params.handle = options.handle;
     if (options?.cursor) params.cursor = options.cursor;
@@ -856,11 +862,14 @@ export const api = {
     return xrpc("com.atproto.admin.searchAccounts", { token, params });
   },
 
-  getInviteCodes(token: AccessToken, options?: {
-    sort?: "recent" | "usage";
-    cursor?: string;
-    limit?: number;
-  }): Promise<GetInviteCodesResponse> {
+  getInviteCodes(
+    token: AccessToken,
+    options?: {
+      sort?: "recent" | "usage";
+      cursor?: string;
+      limit?: number;
+    },
+  ): Promise<GetInviteCodesResponse> {
     const params: Record<string, string> = {};
     if (options?.sort) params.sort = options.sort;
     if (options?.cursor) params.cursor = options.cursor;
@@ -915,11 +924,16 @@ export const api = {
     });
   },
 
-  listRecords(token: AccessToken, repo: Did, collection: Nsid, options?: {
-    limit?: number;
-    cursor?: string;
-    reverse?: boolean;
-  }): Promise<ListRecordsResponse> {
+  listRecords(
+    token: AccessToken,
+    repo: Did,
+    collection: Nsid,
+    options?: {
+      limit?: number;
+      cursor?: string;
+      reverse?: boolean;
+    },
+  ): Promise<ListRecordsResponse> {
     const params: Record<string, string> = { repo, collection };
     if (options?.limit) params.limit = String(options.limit);
     if (options?.cursor) params.cursor = options.cursor;
@@ -1158,18 +1172,21 @@ export const api = {
     });
   },
 
-  async createPasskeyAccount(params: {
-    handle: Handle;
-    email?: EmailAddress;
-    inviteCode?: string;
-    didType?: DidType;
-    did?: Did;
-    signingKey?: string;
-    verificationChannel?: VerificationChannel;
-    discordUsername?: string;
-    telegramUsername?: string;
-    signalUsername?: string;
-  }, byodToken?: string): Promise<PasskeyAccountCreateResponse> {
+  async createPasskeyAccount(
+    params: {
+      handle: Handle;
+      email?: EmailAddress;
+      inviteCode?: string;
+      didType?: DidType;
+      did?: Did;
+      signingKey?: string;
+      verificationChannel?: VerificationChannel;
+      discordUsername?: string;
+      telegramUsername?: string;
+      signalUsername?: string;
+    },
+    byodToken?: string,
+  ): Promise<PasskeyAccountCreateResponse> {
     const url = `${API_BASE}/_account.createPasskeyAccount`;
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -1296,9 +1313,9 @@ export const api = {
   },
 
   async getRepo(token: AccessToken, did: Did): Promise<ArrayBuffer> {
-    const url = `${API_BASE}/com.atproto.sync.getRepo?did=${
-      encodeURIComponent(did)
-    }`;
+    const url = `${API_BASE}/com.atproto.sync.getRepo?did=${encodeURIComponent(
+      did,
+    )}`;
     const res = await authenticatedFetch(url, { token });
     if (!res.ok) {
       const errData = await res.json().catch(() => ({
@@ -1521,5 +1538,4 @@ export const api = {
       total: result.value.total ?? 0,
     });
   },
-
 };

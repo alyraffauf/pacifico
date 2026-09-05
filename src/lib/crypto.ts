@@ -32,9 +32,8 @@ export function generateKeypair(): Keypair {
 }
 
 function base64UrlEncode(data: Uint8Array | string): string {
-  const bytes = typeof data === "string"
-    ? new TextEncoder().encode(data)
-    : data;
+  const bytes =
+    typeof data === "string" ? new TextEncoder().encode(data) : data;
   const binary = Array.from(bytes, (byte) => String.fromCharCode(byte)).join(
     "",
   );

@@ -104,7 +104,7 @@ function PermissionDetails({
           </p>
           <ul className="mt-1 grid gap-1">
             {details.rpc.map((rpc) => (
-              <li className="break-all font-mono" key={rpc}>
+              <li className="font-mono break-all" key={rpc}>
                 {rpc}
               </li>
             ))}
@@ -322,7 +322,7 @@ export function OAuthConsentPage() {
             ) : null}
             {consent.client_uri ? (
               <a
-                className="break-all text-sm"
+                className="text-sm break-all"
                 href={consent.client_uri}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -333,14 +333,14 @@ export function OAuthConsentPage() {
             <Card className="grid gap-3 p-4 text-sm">
               {consent.is_delegation ? (
                 <>
-                  <p className="font-mono text-xs font-semibold uppercase text-ctp-mauve">
+                  <p className="font-mono text-xs font-semibold text-ctp-mauve uppercase">
                     {t("oauthConsent.delegatedAccess")}
                   </p>
                   <p>
                     <span className="block text-xs text-ctp-overlay-1">
                       {t("oauthConsent.actingAs")}
                     </span>
-                    <span className="break-all font-mono text-xs">
+                    <span className="font-mono text-xs break-all">
                       {consent.did}
                     </span>
                   </p>
@@ -363,7 +363,7 @@ export function OAuthConsentPage() {
                     {t("oauth.consent.signingInAs")}
                   </span>
                   {consent.handle ? <strong>@{consent.handle}</strong> : null}
-                  <span className="break-all font-mono text-xs text-ctp-overlay-1">
+                  <span className="font-mono text-xs break-all text-ctp-overlay-1">
                     {consent.did}
                   </span>
                 </>
@@ -418,7 +418,7 @@ export function OAuthConsentPage() {
             ) : null}
             {groupedScopes.map(([category, scopes]) => (
               <section key={category} className="grid gap-2">
-                <h3 className="font-mono text-xs font-semibold uppercase tracking-wide text-ctp-overlay-1">
+                <h3 className="font-mono text-xs font-semibold tracking-wide text-ctp-overlay-1 uppercase">
                   {category}
                 </h3>
                 {scopes.map((scope) => (
@@ -463,7 +463,7 @@ export function OAuthConsentPage() {
             ))}
             {approvableSets.length > 0 ? (
               <section className="grid gap-2">
-                <h3 className="font-mono text-xs font-semibold uppercase tracking-wide text-ctp-overlay-1">
+                <h3 className="font-mono text-xs font-semibold tracking-wide text-ctp-overlay-1 uppercase">
                   {t("oauth.consent.permissionSets")}
                 </h3>
                 {approvableSets.map((permissionSet) => (
@@ -514,13 +514,13 @@ export function OAuthConsentPage() {
             limitedSets.length > 0 ||
             failedSets.length > 0 ? (
               <section className="grid gap-2 rounded border border-ctp-yellow/40 p-4">
-                <h3 className="font-mono text-xs font-semibold uppercase tracking-wide text-ctp-yellow">
+                <h3 className="font-mono text-xs font-semibold tracking-wide text-ctp-yellow uppercase">
                   {t("oauth.consent.unavailablePermissions")}
                 </h3>
                 {restrictedScopes.map((scope) => (
                   <div key={scope.scope} className="text-sm">
                     <strong>{scope.display_name}</strong>
-                    <code className="ml-2 break-all text-xs text-ctp-overlay-1">
+                    <code className="ml-2 text-xs break-all text-ctp-overlay-1">
                       {scopeLabel(scope.scope)}
                     </code>
                   </div>
@@ -538,7 +538,7 @@ export function OAuthConsentPage() {
                             permissionSet.nsid ||
                             permissionSet.include_scope}
                         </strong>
-                        <code className="ml-2 break-all text-xs text-ctp-overlay-1">
+                        <code className="ml-2 text-xs break-all text-ctp-overlay-1">
                           {scopeLabel(scope.scope)}
                         </code>
                       </div>

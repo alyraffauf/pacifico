@@ -3,7 +3,12 @@ import { MigrationError, getErrorMessage } from "./types.ts";
 
 describe("MigrationError", () => {
   test("retains structured error details", () => {
-    const error = new MigrationError("Source PDS unavailable", "ERR_NETWORK", true, { status: 503 });
+    const error = new MigrationError(
+      "Source PDS unavailable",
+      "ERR_NETWORK",
+      true,
+      { status: 503 },
+    );
 
     expect(error).toBeInstanceOf(Error);
     expect(error.name).toBe("MigrationError");

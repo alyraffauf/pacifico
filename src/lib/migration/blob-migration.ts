@@ -44,8 +44,8 @@ const migrateSingleBlob = async (
         attempt + 1
       })`,
     );
-    const { data: blobData, contentType } = await sourceClient
-      .getBlobWithContentType(userDid, cid);
+    const { data: blobData, contentType } =
+      await sourceClient.getBlobWithContentType(userDid, cid);
     console.log(
       `[blob-migration] Got blob ${cid}, size: ${blobData.byteLength}, type: ${contentType}`,
     );
@@ -67,7 +67,8 @@ const migrateSingleBlob = async (
       errorMessage,
     );
 
-    const isRetryable = attempt < MAX_RETRIES - 1 &&
+    const isRetryable =
+      attempt < MAX_RETRIES - 1 &&
       !errorMessage.includes("404") &&
       !errorMessage.includes("not found") &&
       !errorMessage.includes("BlobNotFound");
@@ -152,8 +153,7 @@ export async function migrateBlobs(
       "[blob-migration] No source client available, cannot fetch blobs",
     );
     safeProgress(onProgress, {
-      currentOperation:
-        `${missingBlobs.length} media files missing. No source PDS URL available - your old server may have shut down. Posts will work, but some images/media may be unavailable.`,
+      currentOperation: `${missingBlobs.length} media files missing. No source PDS URL available - your old server may have shut down. Posts will work, but some images/media may be unavailable.`,
     });
     return {
       migrated: 0,
@@ -198,11 +198,12 @@ export async function migrateBlobs(
 
   safeProgress(onProgress, { blobsMigrated: migrated });
 
-  const statusMessage = migrated === missingBlobs.length
-    ? `All ${migrated} blobs migrated successfully`
-    : migrated > 0
-    ? `${migrated}/${missingBlobs.length} blobs migrated. ${failed.length} failed.`
-    : `Could not migrate blobs (${failed.length} missing)`;
+  const statusMessage =
+    migrated === missingBlobs.length
+      ? `All ${migrated} blobs migrated successfully`
+      : migrated > 0
+        ? `${migrated}/${missingBlobs.length} blobs migrated. ${failed.length} failed.`
+        : `Could not migrate blobs (${failed.length} missing)`;
 
   safeProgress(onProgress, { currentOperation: statusMessage });
 

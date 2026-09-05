@@ -81,24 +81,26 @@ export function saveRegistrationState(
     },
     account: account
       ? {
-        did: account.did,
-        handle: account.handle,
-        setupToken: account.setupToken,
-        appPassword: account.appPassword,
-        appPasswordName: account.appPasswordName,
-      }
+          did: account.did,
+          handle: account.handle,
+          setupToken: account.setupToken,
+          appPassword: account.appPassword,
+          appPasswordName: account.appPasswordName,
+        }
       : null,
     session: session
       ? {
-        accessJwt: session.accessJwt,
-        refreshJwt: session.refreshJwt,
-      }
+          accessJwt: session.accessJwt,
+          refreshJwt: session.refreshJwt,
+        }
       : null,
   };
 
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
-  } catch { /* localStorage unavailable */ }
+  } catch {
+    /* localStorage unavailable */
+  }
 }
 
 export function loadRegistrationState(): {
@@ -144,18 +146,18 @@ export function loadRegistrationState(): {
       },
       account: state.account
         ? {
-          did: state.account.did as AccountResult["did"],
-          handle: state.account.handle as AccountResult["handle"],
-          setupToken: state.account.setupToken,
-          appPassword: state.account.appPassword,
-          appPasswordName: state.account.appPasswordName,
-        }
+            did: state.account.did as AccountResult["did"],
+            handle: state.account.handle as AccountResult["handle"],
+            setupToken: state.account.setupToken,
+            appPassword: state.account.appPassword,
+            appPasswordName: state.account.appPasswordName,
+          }
         : null,
       session: state.session
         ? {
-          accessJwt: state.session.accessJwt as SessionState["accessJwt"],
-          refreshJwt: state.session.refreshJwt as SessionState["refreshJwt"],
-        }
+            accessJwt: state.session.accessJwt as SessionState["accessJwt"],
+            refreshJwt: state.session.refreshJwt as SessionState["refreshJwt"],
+          }
         : null,
     };
   } catch {
@@ -167,13 +169,18 @@ export function loadRegistrationState(): {
 export function clearRegistrationState(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);
-  } catch { /* localStorage unavailable */ }
+  } catch {
+    /* localStorage unavailable */
+  }
 }
 
 export function hasPendingRegistration(): boolean {
   const state = loadRegistrationState();
-  return state !== null && state.step !== "info" &&
-    state.step !== "redirect-to-dashboard";
+  return (
+    state !== null &&
+    state.step !== "info" &&
+    state.step !== "redirect-to-dashboard"
+  );
 }
 
 export function getRegistrationResumeInfo(): {
@@ -184,7 +191,9 @@ export function getRegistrationResumeInfo(): {
 } | null {
   const state = loadRegistrationState();
   if (
-    !state || state.step === "info" || state.step === "redirect-to-dashboard"
+    !state ||
+    state.step === "info" ||
+    state.step === "redirect-to-dashboard"
   ) {
     return null;
   }

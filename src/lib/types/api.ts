@@ -39,11 +39,7 @@ export type ApiErrorCode =
   | "Unknown";
 
 export type AccountStatus =
-  | "active"
-  | "deactivated"
-  | "migrated"
-  | "suspended"
-  | "deleted";
+  "active" | "deactivated" | "migrated" | "suspended" | "deleted";
 
 export type SessionType = "oauth" | "legacy" | "app_password";
 
@@ -55,26 +51,26 @@ export type ReauthMethod = "password" | "totp" | "passkey";
 
 export type ContactState =
   | {
-    readonly contactKind: "channel";
-    readonly preferredChannel: VerificationChannel;
-    readonly preferredChannelVerified: boolean;
-    readonly email?: EmailAddress;
-  }
+      readonly contactKind: "channel";
+      readonly preferredChannel: VerificationChannel;
+      readonly preferredChannelVerified: boolean;
+      readonly email?: EmailAddress;
+    }
   | {
-    readonly contactKind: "email";
-    readonly email: EmailAddress;
-    readonly emailConfirmed: boolean;
-  }
+      readonly contactKind: "email";
+      readonly email: EmailAddress;
+      readonly emailConfirmed: boolean;
+    }
   | { readonly contactKind: "none" };
 
 export type AccountState =
   | { readonly accountKind: "active"; readonly isAdmin: boolean }
   | {
-    readonly accountKind: "migrated";
-    readonly migratedToPds: string;
-    readonly migratedAt: ISODateString;
-    readonly isAdmin: boolean;
-  }
+      readonly accountKind: "migrated";
+      readonly migratedToPds: string;
+      readonly migratedAt: ISODateString;
+      readonly isAdmin: boolean;
+    }
   | { readonly accountKind: "deactivated"; readonly isAdmin: boolean }
   | { readonly accountKind: "suspended"; readonly isAdmin: boolean };
 
@@ -92,8 +88,8 @@ export function getSessionEmail(session: Session): EmailAddress | undefined {
   return session.contactKind === "email"
     ? session.email
     : session.contactKind === "channel"
-    ? session.email
-    : undefined;
+      ? session.email
+      : undefined;
 }
 
 export function isActive(session: Session): boolean {
@@ -182,7 +178,6 @@ export interface ConfirmSignupResult {
   preferredChannel?: VerificationChannel;
   preferredChannelVerified?: boolean;
 }
-
 
 export interface ServerLinks {
   privacyPolicy?: string;
@@ -294,7 +289,6 @@ export interface SessionInfo {
 export interface ListSessionsResponse {
   sessions: SessionInfo[];
 }
-
 
 export interface AccountSearchResult {
   did: Did;

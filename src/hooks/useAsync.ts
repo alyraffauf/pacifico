@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export function useAsync<T>(load: () => Promise<T>, dependencies: readonly unknown[] = []) {
+export function useAsync<T>(
+  load: () => Promise<T>,
+  dependencies: readonly unknown[] = [],
+) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -13,13 +16,17 @@ export function useAsync<T>(load: () => Promise<T>, dependencies: readonly unkno
     setError(null);
     try {
       const nextData = await load();
-      if (mounted.current && generation === requestGeneration.current) setData(nextData);
+      if (mounted.current && generation === requestGeneration.current)
+        setData(nextData);
     } catch (caught) {
       if (mounted.current && generation === requestGeneration.current) {
-        setError(caught instanceof Error ? caught.message : "The request failed");
+        setError(
+          caught instanceof Error ? caught.message : "The request failed",
+        );
       }
     } finally {
-      if (mounted.current && generation === requestGeneration.current) setLoading(false);
+      if (mounted.current && generation === requestGeneration.current)
+        setLoading(false);
     }
   }, dependencies);
 
@@ -30,6 +37,8 @@ export function useAsync<T>(load: () => Promise<T>, dependencies: readonly unkno
       requestGeneration.current += 1;
     };
   }, []);
-  useEffect(() => { void reload(); }, [reload]);
+  useEffect(() => {
+    void reload();
+  }, [reload]);
   return { data, error, loading, reload, setData };
 }

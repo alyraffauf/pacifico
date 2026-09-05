@@ -259,7 +259,7 @@ export function AdminPage() {
             [t("admin.blobStorage"), formatBytes(stats.blobStorageBytes)],
           ].map(([label, value]) => (
             <Card key={label} className="p-4">
-              <p className="text-xs uppercase tracking-wide text-ctp-overlay-1">
+              <p className="text-xs tracking-wide text-ctp-overlay-1 uppercase">
                 {label}
               </p>
               <p className="mt-2 font-mono text-xl font-bold text-ctp-text">
@@ -439,7 +439,7 @@ export function AdminPage() {
               {accounts.map((account) => (
                 <tr key={account.did}>
                   <td className="font-mono text-ctp-text">@{account.handle}</td>
-                  <td className="break-all font-mono text-xs text-ctp-subtext-0">
+                  <td className="font-mono text-xs break-all text-ctp-subtext-0">
                     {account.did}
                   </td>
                   <td>{formatDateTime(account.indexedAt)}</td>
@@ -539,7 +539,7 @@ export function AdminPage() {
               <h2 className="font-mono font-semibold text-ctp-text">
                 @{selected.handle}
               </h2>
-              <p className="mt-1 break-all font-mono text-xs text-ctp-overlay-1">
+              <p className="mt-1 font-mono text-xs break-all text-ctp-overlay-1">
                 {selected.did}
               </p>
             </div>

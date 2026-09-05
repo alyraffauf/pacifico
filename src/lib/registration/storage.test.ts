@@ -4,7 +4,12 @@ import {
   loadRegistrationState,
   saveRegistrationState,
 } from "./storage.ts";
-import { unsafeAsAccessToken, unsafeAsDid, unsafeAsHandle, unsafeAsRefreshToken } from "../types/branded.ts";
+import {
+  unsafeAsAccessToken,
+  unsafeAsDid,
+  unsafeAsHandle,
+  unsafeAsRefreshToken,
+} from "../types/branded.ts";
 
 describe("registration recovery storage", () => {
   it("restores an interrupted passkey registration without storing a password", () => {
@@ -34,15 +39,20 @@ describe("registration recovery storage", () => {
 
     const restored = loadRegistrationState();
     expect(restored?.info.password).toBeUndefined();
-    expect(restored?.externalDidWeb.byodPrivateKey).toEqual(new Uint8Array([1, 2, 3]));
+    expect(restored?.externalDidWeb.byodPrivateKey).toEqual(
+      new Uint8Array([1, 2, 3]),
+    );
     expect(restored?.account?.appPassword).toBe("one-time-password");
   });
 
   it("clears recovery state after its one-hour lifetime", () => {
-    localStorage.setItem("tranquil_registration_state", JSON.stringify({
-      version: 1,
-      startedAt: new Date(Date.now() - 60 * 60 * 1000 - 1).toISOString(),
-    }));
+    localStorage.setItem(
+      "tranquil_registration_state",
+      JSON.stringify({
+        version: 1,
+        startedAt: new Date(Date.now() - 60 * 60 * 1000 - 1).toISOString(),
+      }),
+    );
 
     expect(loadRegistrationState()).toBeNull();
     expect(localStorage.getItem("tranquil_registration_state")).toBeNull();

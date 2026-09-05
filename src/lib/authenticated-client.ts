@@ -49,7 +49,6 @@ export interface AuthenticatedClient {
   ): Promise<
     Result<{ entries: DelegationAuditEntry[]; total: number }, ApiError>
   >;
-
 }
 
 export function createAuthenticatedClient(

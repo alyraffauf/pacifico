@@ -13,13 +13,48 @@ const consent: ConsentData = {
   show_consent: true,
   transition_supersedes: true,
   scopes: [
-    { scope: "atproto", category: "Core", required: true, description: "Core access", display_name: "AT Protocol", granted: null },
-    { scope: "transition:generic", category: "Transition", required: false, description: "Transition access", display_name: "Transition", granted: false },
-    { scope: "repo:app.bsky.feed.post", category: "Repository", required: false, description: "Posts", display_name: "Posts", granted: false, superseded: true },
-    { scope: "account:email", category: "Account", required: false, description: "Email", display_name: "Email", granted: false, restricted: true },
+    {
+      scope: "atproto",
+      category: "Core",
+      required: true,
+      description: "Core access",
+      display_name: "AT Protocol",
+      granted: null,
+    },
+    {
+      scope: "transition:generic",
+      category: "Transition",
+      required: false,
+      description: "Transition access",
+      display_name: "Transition",
+      granted: false,
+    },
+    {
+      scope: "repo:app.bsky.feed.post",
+      category: "Repository",
+      required: false,
+      description: "Posts",
+      display_name: "Posts",
+      granted: false,
+      superseded: true,
+    },
+    {
+      scope: "account:email",
+      category: "Account",
+      required: false,
+      description: "Email",
+      display_name: "Email",
+      granted: false,
+      restricted: true,
+    },
   ],
   permission_sets: [
-    { include_scope: "include:example.permissions", title: "Example", granted: false, superseded: true },
+    {
+      include_scope: "include:example.permissions",
+      title: "Example",
+      granted: false,
+      superseded: true,
+    },
   ],
 };
 
@@ -43,7 +78,11 @@ describe("OAuth consent selections", () => {
   });
 
   it("uses the AT Protocol fallback for an empty consent request", () => {
-    expect(approvedConsentScopes({ ...consent, scopes: [], permission_sets: [] }, {}))
-      .toEqual(["atproto"]);
+    expect(
+      approvedConsentScopes(
+        { ...consent, scopes: [], permission_sets: [] },
+        {},
+      ),
+    ).toEqual(["atproto"]);
   });
 });

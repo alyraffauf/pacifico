@@ -4,4 +4,3 @@ export default {
   tailwindStylesheet: "./src/index.css",
   tailwindFunctions: ["buttonClasses"],
 };
-

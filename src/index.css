@@ -127,7 +127,8 @@
 
   .control:focus {
     border-color: var(--color-ctp-lavender);
-    outline: 2px solid color-mix(in srgb, var(--color-ctp-lavender) 30%, transparent);
+    outline: 2px solid
+      color-mix(in srgb, var(--color-ctp-lavender) 30%, transparent);
     outline-offset: 0;
   }
 
@@ -168,7 +169,11 @@
 
   .home-hero {
     background:
-      radial-gradient(circle at 72% 48%, color-mix(in srgb, var(--catppuccin-color-surface-1) 38%, transparent), transparent 30rem),
+      radial-gradient(
+        circle at 72% 48%,
+        color-mix(in srgb, var(--catppuccin-color-surface-1) 38%, transparent),
+        transparent 30rem
+      ),
       var(--catppuccin-color-base);
   }
 }

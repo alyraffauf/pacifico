@@ -173,7 +173,7 @@ export function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-ctp-base lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
-      <aside className="border-b border-ctp-surface-0 bg-ctp-crust lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:border-b-0 lg:border-r">
+      <aside className="border-b border-ctp-surface-0 bg-ctp-crust lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:border-r lg:border-b-0">
         <div className="flex min-h-16 items-center border-b border-ctp-surface-0 px-4">
           <a
             href="/"
@@ -252,7 +252,7 @@ export function DashboardLayout({
         <nav
           ref={navRef}
           aria-label="Account navigation"
-          className="flex gap-1 overflow-x-auto p-3 lg:grid lg:flex-1 lg:content-start lg:gap-1 lg:overflow-y-auto lg:overflow-x-hidden lg:py-4"
+          className="flex gap-1 overflow-x-auto p-3 lg:grid lg:flex-1 lg:content-start lg:gap-1 lg:overflow-x-hidden lg:overflow-y-auto lg:py-4"
         >
           {navigationItems
             .filter((item) => {

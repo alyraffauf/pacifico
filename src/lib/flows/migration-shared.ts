@@ -40,10 +40,14 @@ export function resolveVerificationIdentifier(
   signalUsername: string,
 ): string {
   switch (channel) {
-    case "email": return email;
-    case "discord": return discordUsername;
-    case "telegram": return telegramUsername;
-    case "signal": return signalUsername;
+    case "email":
+      return email;
+    case "discord":
+      return discordUsername;
+    case "telegram":
+      return telegramUsername;
+    case "signal":
+      return signalUsername;
   }
 }
 

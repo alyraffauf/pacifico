@@ -14,7 +14,7 @@ export const SCOPES = [
 ].join(" ");
 
 const CLIENT_ID =
-  !(import.meta.env.DEV) || globalThis.location?.hostname !== 'localhost'
+  !import.meta.env.DEV || globalThis.location?.hostname !== "localhost"
     ? `${globalThis.location.origin}/oauth-client-metadata.json`
     : `http://localhost/?scope=${encodeURIComponent(SCOPES)}`;
 
@@ -51,10 +51,10 @@ function base64UrlEncode(buffer: ArrayBuffer): string {
   const binary = Array.from(bytes, (byte) => String.fromCharCode(byte)).join(
     "",
   );
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(
-    /=+$/,
-    "",
-  );
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }
 
 export async function generateCodeChallenge(verifier: string): Promise<string> {
@@ -416,7 +416,7 @@ async function tokenRequest(
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      "DPoP": dpopProof,
+      DPoP: dpopProof,
     },
     body: params,
   });
@@ -479,9 +479,10 @@ export async function refreshOAuthToken(
   return tokenRequest(params);
 }
 
-export function checkForOAuthCallback():
-  | { code: string; state: string }
-  | null {
+export function checkForOAuthCallback(): {
+  code: string;
+  state: string;
+} | null {
   if (globalThis.location.pathname === "/app/migrate") {
     return null;
   }
