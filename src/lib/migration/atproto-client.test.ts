@@ -297,6 +297,71 @@ describe("AtprotoClient transport", () => {
       allowDeactivated: true,
     });
   });
+
+  it("preserves service authentication and errors for raw account creation", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        jsonResponse(
+          { error: "InvalidInviteCode", message: "invite rejected" },
+          { status: 400 },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const params = {
+      handle: "alice.example",
+      email: "alice@example.com",
+      password: "password",
+      inviteCode: "invite-code",
+    };
+
+    const error = await new AtprotoClient("https://pds.example")
+      .createAccount(params, "service-token")
+      .catch((caught: unknown) => caught);
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    expect(new Headers(init?.headers).get("Authorization")).toBe(
+      "Bearer service-token",
+    );
+    expect(JSON.parse(init?.body as string)).toEqual(params);
+    expect(error).toMatchObject({
+      message: "invite rejected",
+      error: "InvalidInviteCode",
+      status: 400,
+    });
+  });
+
+  it("preserves the passkey account payload on the shared raw path", async () => {
+    const setup = {
+      setupToken: "setup-token",
+      did: "did:plc:alice",
+      handle: "alice.example",
+      setupExpiresAt: "2026-09-05T12:00:00Z",
+    };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse(setup));
+    vi.stubGlobal("fetch", fetchMock);
+    const params = {
+      handle: "alice.example",
+      email: "alice@example.com",
+      verificationChannel: "email" as const,
+    };
+
+    await expect(
+      new AtprotoClient("https://pds.example").createPasskeyAccount(
+        params,
+        "service-token",
+      ),
+    ).resolves.toEqual(setup);
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe("https://pds.example/xrpc/_account.createPasskeyAccount");
+    expect(new Headers(init?.headers).get("Authorization")).toBe(
+      "Bearer service-token",
+    );
+    expect(JSON.parse(init?.body as string)).toEqual(params);
+  });
 });
 
 describe("identity resolution", () => {

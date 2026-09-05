@@ -60,9 +60,24 @@ function createXrpcError(
   return error;
 }
 
-export class AtprotoClient {
-  private baseUrl: string;
-  private client: Client;
+type TransportAuthentication =
+  | { type: "session" }
+  | { type: "token"; token: string; useDPoP: boolean }
+  | { type: "none" };
+
+interface RawRequestOptions {
+  httpMethod?: "GET" | "POST";
+  params?: Record<string, string>;
+  body?: unknown;
+  authToken?: string;
+  useSession?: boolean;
+  useDPoPForAuthToken?: boolean;
+  rawBody?: Uint8Array | Blob;
+  contentType?: string;
+}
+
+class XrpcTransport {
+  readonly baseUrl: string;
   private accessToken: string | null = null;
   private refreshToken: string | null = null;
   private dpopKeyPair: DPoPKeyPair | null = null;
@@ -73,38 +88,130 @@ export class AtprotoClient {
 
   constructor(pdsUrl: string) {
     this.baseUrl = pdsUrl.replace(/\/$/, "");
-    this.client = new Client({
-      handler: (pathname, init) => this.handleAtcuteFetch(pathname, init),
-    });
   }
 
-  private async unwrapAtcute<T>(request: Promise<AtcuteResponse>): Promise<T> {
-    const response = await request;
-    if (!response.ok) {
-      throw createXrpcError(response.status, response.data);
-    }
-    return response.data as T;
-  }
-
-  private async handleAtcuteFetch(
+  readonly handleAtcuteFetch = (
     pathname: string,
     init: RequestInit,
-  ): Promise<Response> {
+  ): Promise<Response> => {
     const url = new URL(pathname, `${this.baseUrl}/`).toString();
-    const initialHeaders = new Headers(init.headers);
-    const explicitAuthorization = initialHeaders.get("Authorization");
-    const explicitToken = explicitAuthorization?.replace(
-      /^(?:Bearer|DPoP)\s+/i,
-      "",
-    );
-    const method = (init.method ?? "GET").toUpperCase();
-    const canRetry = !(init.body instanceof ReadableStream);
+    const headers = new Headers(init.headers);
+    const authorization = headers.get("Authorization");
+    const authentication: TransportAuthentication = authorization
+      ? {
+          type: "token",
+          token: authorization.replace(/^(?:Bearer|DPoP)\s+/i, ""),
+          useDPoP: true,
+        }
+      : { type: "session" };
 
-    const makeRequest = async (nonce?: string): Promise<Response> => {
-      const headers = new Headers(initialHeaders);
-      const token = explicitToken ?? this.accessToken;
+    headers.delete("Authorization");
+    headers.delete("DPoP");
+    return this.fetchWithAuth(url, { ...init, headers }, authentication);
+  };
+
+  async request<T>(
+    pathname: string,
+    options: RawRequestOptions = {},
+  ): Promise<T> {
+    const {
+      httpMethod = "GET",
+      params,
+      body,
+      authToken,
+      useSession = true,
+      useDPoPForAuthToken = true,
+      rawBody,
+      contentType,
+    } = options;
+    const url = new URL(`/xrpc/${pathname}`, `${this.baseUrl}/`);
+    if (params) {
+      url.search = new URLSearchParams(params).toString();
+    }
+
+    const headers = new Headers();
+    let requestBody: BodyInit | undefined;
+    if (rawBody) {
+      headers.set("Content-Type", contentType ?? "application/octet-stream");
+      requestBody = rawBody as BodyInit;
+    } else if (body) {
+      headers.set("Content-Type", "application/json");
+      requestBody = JSON.stringify(body);
+    } else if (httpMethod === "POST") {
+      headers.set("Content-Type", "application/json");
+    }
+
+    const authentication: TransportAuthentication = authToken
+      ? { type: "token", token: authToken, useDPoP: useDPoPForAuthToken }
+      : useSession
+        ? { type: "session" }
+        : { type: "none" };
+    const response = await this.fetchWithAuth(
+      url.toString(),
+      { method: httpMethod, headers, body: requestBody },
+      authentication,
+    );
+    if (!response.ok) {
+      throw createXrpcError(response.status, await this.readError(response));
+    }
+
+    const responseContentType = response.headers.get("content-type") ?? "";
+    if (responseContentType.includes("application/json")) {
+      return response.json();
+    }
+    const buffer = await response.arrayBuffer();
+    return new Uint8Array(buffer) as T;
+  }
+
+  setAccessToken(token: string | null): void {
+    this.accessToken = token;
+  }
+
+  getAccessToken(): string | null {
+    return this.accessToken;
+  }
+
+  setRefreshToken(token: string | null): void {
+    this.refreshToken = token;
+  }
+
+  getRefreshToken(): string | null {
+    return this.refreshToken;
+  }
+
+  setDPoPKeyPair(keyPair: DPoPKeyPair | null): void {
+    this.dpopKeyPair = keyPair;
+  }
+
+  setOAuthRefreshContext(tokenEndpoint: string, clientId: string): void {
+    this.oauthTokenEndpoint = tokenEndpoint;
+    this.oauthClientId = clientId;
+  }
+
+  private async fetchWithAuth(
+    url: string,
+    init: RequestInit,
+    authentication: TransportAuthentication,
+  ): Promise<Response> {
+    const method = (init.method ?? "GET").toUpperCase();
+    const canReplay = !(init.body instanceof ReadableStream);
+    let usedNonceRetry = false;
+
+    const send = async (): Promise<Response> => {
+      const headers = new Headers(init.headers);
+      const token =
+        authentication.type === "session"
+          ? this.accessToken
+          : authentication.type === "token"
+            ? authentication.token
+            : null;
+      const useDPoP =
+        Boolean(this.dpopKeyPair) &&
+        authentication.type !== "none" &&
+        (authentication.type === "session" || authentication.useDPoP);
+
       if (token) {
-        if (this.dpopKeyPair) {
+        if (useDPoP && this.dpopKeyPair) {
           headers.set("Authorization", `DPoP ${token}`);
           headers.set(
             "DPoP",
@@ -112,7 +219,7 @@ export class AtprotoClient {
               this.dpopKeyPair,
               method,
               url.split("?")[0]!,
-              nonce,
+              this.dpopNonce ?? undefined,
               await computeAccessTokenHash(token),
             ),
           );
@@ -123,81 +230,67 @@ export class AtprotoClient {
       return fetch(url, { ...init, method, headers });
     };
 
-    const retryWithNonce = async (response: Response): Promise<Response> => {
-      if (response.ok || !this.dpopKeyPair || !canRetry) {
-        return response;
+    const sendWithNonceRetry = async (): Promise<Response> => {
+      let response = await send();
+      const responseNonce = response.headers.get("DPoP-Nonce");
+      if (responseNonce) {
+        const nonceChanged = responseNonce !== this.dpopNonce;
+        this.dpopNonce = responseNonce;
+        if (
+          !response.ok &&
+          nonceChanged &&
+          this.dpopKeyPair &&
+          canReplay &&
+          !usedNonceRetry
+        ) {
+          usedNonceRetry = true;
+          response = await send();
+          this.captureNonce(response);
+        }
       }
-      const nonce = response.headers.get("DPoP-Nonce");
-      if (!nonce || nonce === this.dpopNonce) {
-        return response;
-      }
-      this.dpopNonce = nonce;
-      return makeRequest(nonce);
+      return response;
     };
 
-    let response = await makeRequest(this.dpopNonce ?? undefined);
-    response = await retryWithNonce(response);
-
+    const response = await sendWithNonceRetry();
     if (
-      !response.ok &&
-      !explicitAuthorization &&
-      canRetry &&
-      (await this.isExpiredTokenResponse(response)) &&
-      (await this.tryRefreshToken())
+      response.ok ||
+      authentication.type !== "session" ||
+      !canReplay ||
+      !(await this.isExpiredTokenResponse(response)) ||
+      !(await this.tryRefreshToken())
     ) {
-      response = await makeRequest(this.dpopNonce ?? undefined);
-      response = await retryWithNonce(response);
+      return response;
     }
 
+    return sendWithNonceRetry();
+  }
+
+  private captureNonce(response: Response): void {
     const nonce = response.headers.get("DPoP-Nonce");
     if (nonce) {
       this.dpopNonce = nonce;
     }
-    return response;
   }
 
   private async isExpiredTokenResponse(response: Response): Promise<boolean> {
     if (response.status !== 400 && response.status !== 401) {
       return false;
     }
-    const data = (await response
-      .clone()
-      .json()
-      .catch(() => null)) as { error?: string; message?: string } | null;
+    const data = await this.readError(response.clone());
     return (
-      data?.error === "ExpiredToken" ||
-      data?.error === "invalid_token" ||
-      Boolean(data?.message?.includes("expired"))
+      data.error === "ExpiredToken" ||
+      data.error === "invalid_token" ||
+      Boolean(data.message?.includes("expired"))
     );
   }
 
-  setAccessToken(token: string | null) {
-    this.accessToken = token;
-  }
-
-  getAccessToken(): string | null {
-    return this.accessToken;
-  }
-
-  setRefreshToken(token: string | null) {
-    this.refreshToken = token;
-  }
-
-  getRefreshToken(): string | null {
-    return this.refreshToken;
-  }
-
-  getBaseUrl(): string {
-    return this.baseUrl;
-  }
-
-  setDPoPKeyPair(keyPair: DPoPKeyPair | null) {
-    this.dpopKeyPair = keyPair;
-  }
-
-  setOAuthRefreshContext(tokenEndpoint: string, clientId: string) {
-    this.oauthTokenEndpoint = tokenEndpoint;
-    this.oauthClientId = clientId;
+  private async readError(
+    response: Response,
+  ): Promise<{ error: string; message?: string }> {
+    return response.json().catch(() => ({
+      error: "Unknown",
+      message: response.statusText,
+    }));
   }
 
   private async tryRefreshToken(): Promise<boolean> {
@@ -240,197 +333,68 @@ export class AtprotoClient {
   }
 
   private async refreshSessionInternal(refreshJwt: string): Promise<Session> {
-    const url = `${this.baseUrl}/xrpc/com.atproto.server.refreshSession`;
-    const headers: Record<string, string> = {};
-
-    if (this.dpopKeyPair) {
-      headers["Authorization"] = `DPoP ${refreshJwt}`;
-      const tokenHash = await computeAccessTokenHash(refreshJwt);
-      const dpopProof = await createDPoPProof(
-        this.dpopKeyPair,
-        "POST",
-        url,
-        this.dpopNonce ?? undefined,
-        tokenHash,
-      );
-      headers["DPoP"] = dpopProof;
-    } else {
-      headers["Authorization"] = `Bearer ${refreshJwt}`;
-    }
-
-    let res = await fetch(url, { method: "POST", headers });
-
-    if (!res.ok && this.dpopKeyPair) {
-      const dpopNonce = res.headers.get("DPoP-Nonce");
-      if (dpopNonce && dpopNonce !== this.dpopNonce) {
-        this.dpopNonce = dpopNonce;
-        headers["DPoP"] = await createDPoPProof(
-          this.dpopKeyPair,
-          "POST",
-          url,
-          dpopNonce,
-          await computeAccessTokenHash(refreshJwt),
-        );
-        res = await fetch(url, { method: "POST", headers });
-      }
-    }
-
-    if (!res.ok) {
+    const response = await this.fetchWithAuth(
+      `${this.baseUrl}/xrpc/com.atproto.server.refreshSession`,
+      { method: "POST" },
+      { type: "token", token: refreshJwt, useDPoP: true },
+    );
+    if (!response.ok) {
       throw new Error("Token refresh failed");
     }
+    return response.json();
+  }
+}
 
-    const newNonce = res.headers.get("DPoP-Nonce");
-    if (newNonce) {
-      this.dpopNonce = newNonce;
-    }
+export class AtprotoClient {
+  private readonly transport: XrpcTransport;
+  private readonly client: Client;
 
-    return res.json();
+  constructor(pdsUrl: string) {
+    this.transport = new XrpcTransport(pdsUrl);
+    this.client = new Client({
+      handler: this.transport.handleAtcuteFetch,
+    });
   }
 
-  private async xrpc<T>(
-    method: string,
-    options?: {
-      httpMethod?: "GET" | "POST";
-      params?: Record<string, string>;
-      body?: unknown;
-      authToken?: string;
-      rawBody?: Uint8Array | Blob;
-      contentType?: string;
-    },
-  ): Promise<T> {
-    const {
-      httpMethod = "GET",
-      params,
-      body,
-      authToken,
-      rawBody,
-      contentType,
-    } = options ?? {};
-
-    let url = `${this.baseUrl}/xrpc/${method}`;
-    if (params) {
-      const searchParams = new URLSearchParams(params);
-      url += `?${searchParams}`;
+  private async unwrapAtcute<T>(request: Promise<AtcuteResponse>): Promise<T> {
+    const response = await request;
+    if (!response.ok) {
+      throw createXrpcError(response.status, response.data);
     }
-
-    const makeRequest = async (nonce?: string): Promise<Response> => {
-      const headers: Record<string, string> = {};
-      const token = authToken ?? this.accessToken;
-      if (token) {
-        if (this.dpopKeyPair) {
-          headers["Authorization"] = `DPoP ${token}`;
-          const tokenHash = await computeAccessTokenHash(token);
-          const dpopProof = await createDPoPProof(
-            this.dpopKeyPair,
-            httpMethod,
-            url.split("?")[0],
-            nonce,
-            tokenHash,
-          );
-          headers["DPoP"] = dpopProof;
-        } else {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
-      }
-
-      let requestBody: BodyInit | undefined;
-      if (rawBody) {
-        headers["Content-Type"] = contentType ?? "application/octet-stream";
-        requestBody = rawBody as BodyInit;
-      } else if (body) {
-        headers["Content-Type"] = "application/json";
-        requestBody = JSON.stringify(body);
-      } else if (httpMethod === "POST") {
-        headers["Content-Type"] = "application/json";
-      }
-
-      return fetch(url, {
-        method: httpMethod,
-        headers,
-        body: requestBody,
-      });
-    };
-
-    let res = await makeRequest(this.dpopNonce ?? undefined);
-
-    if (!res.ok && this.dpopKeyPair) {
-      const dpopNonce = res.headers.get("DPoP-Nonce");
-      if (dpopNonce && dpopNonce !== this.dpopNonce) {
-        this.dpopNonce = dpopNonce;
-        res = await makeRequest(dpopNonce);
-      }
-    }
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({
-        error: "Unknown",
-        message: res.statusText,
-      }));
-
-      const isTokenExpired =
-        (res.status === 401 || res.status === 400) &&
-        (err.error === "ExpiredToken" ||
-          err.error === "invalid_token" ||
-          (err.message && err.message.includes("expired")));
-
-      if (isTokenExpired && !authToken && (await this.tryRefreshToken())) {
-        const retryNonce = res.headers.get("DPoP-Nonce") ?? this.dpopNonce;
-        if (retryNonce) this.dpopNonce = retryNonce;
-        res = await makeRequest(this.dpopNonce ?? undefined);
-
-        if (!res.ok && this.dpopKeyPair) {
-          const dpopNonce = res.headers.get("DPoP-Nonce");
-          if (dpopNonce && dpopNonce !== this.dpopNonce) {
-            this.dpopNonce = dpopNonce;
-            res = await makeRequest(dpopNonce);
-          }
-        }
-
-        if (res.ok) {
-          const newNonce = res.headers.get("DPoP-Nonce");
-          if (newNonce) this.dpopNonce = newNonce;
-          const responseContentType = res.headers.get("content-type") ?? "";
-          if (responseContentType.includes("application/json")) {
-            return res.json();
-          }
-          return res.arrayBuffer().then((buf) => new Uint8Array(buf)) as T;
-        }
-
-        const retryErr = await res.json().catch(() => ({
-          error: "Unknown",
-          message: res.statusText,
-        }));
-        const retryError = new Error(
-          retryErr.message || retryErr.error || res.statusText,
-        ) as Error & { status: number; error: string };
-        retryError.status = res.status;
-        retryError.error = retryErr.error;
-        throw retryError;
-      }
-
-      const error = new Error(
-        err.message || err.error || res.statusText,
-      ) as Error & {
-        status: number;
-        error: string;
-      };
-      error.status = res.status;
-      error.error = err.error;
-      throw error;
-    }
-
-    const newNonce = res.headers.get("DPoP-Nonce");
-    if (newNonce) {
-      this.dpopNonce = newNonce;
-    }
-
-    const responseContentType = res.headers.get("content-type") ?? "";
-    if (responseContentType.includes("application/json")) {
-      return res.json();
-    }
-    return res.arrayBuffer().then((buf) => new Uint8Array(buf)) as T;
+    return response.data as T;
   }
 
+  setAccessToken(token: string | null) {
+    this.transport.setAccessToken(token);
+  }
+
+  getAccessToken(): string | null {
+    return this.transport.getAccessToken();
+  }
+
+  setRefreshToken(token: string | null) {
+    this.transport.setRefreshToken(token);
+  }
+
+  getRefreshToken(): string | null {
+    return this.transport.getRefreshToken();
+  }
+
+  getBaseUrl(): string {
+    return this.transport.baseUrl;
+  }
+
+  setDPoPKeyPair(keyPair: DPoPKeyPair | null) {
+    this.transport.setDPoPKeyPair(keyPair);
+  }
+
+  setOAuthRefreshContext(tokenEndpoint: string, clientId: string) {
+    this.transport.setOAuthRefreshContext(tokenEndpoint, clientId);
+  }
+
+  private xrpc<T>(method: string, options?: RawRequestOptions): Promise<T> {
+    return this.transport.request(method, options);
+  }
   async login(
     identifier: string,
     password: string,
@@ -442,8 +406,8 @@ export class AtprotoClient {
       }),
     );
 
-    this.accessToken = session.accessJwt;
-    this.refreshToken = session.refreshJwt;
+    this.setAccessToken(session.accessJwt);
+    this.setRefreshToken(session.refreshJwt);
     return session;
   }
 
@@ -453,7 +417,7 @@ export class AtprotoClient {
         headers: { Authorization: `Bearer ${refreshJwt}` },
       }),
     );
-    this.accessToken = session.accessJwt;
+    this.setAccessToken(session.accessJwt);
     return session;
   }
 
@@ -562,41 +526,18 @@ export class AtprotoClient {
     params: CreateAccountParams,
     serviceToken?: string,
   ): Promise<Session> {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (serviceToken) {
-      headers["Authorization"] = `Bearer ${serviceToken}`;
-    }
-
-    const res = await fetch(
-      `${this.baseUrl}/xrpc/com.atproto.server.createAccount`,
+    const session = await this.xrpc<Session>(
+      "com.atproto.server.createAccount",
       {
-        method: "POST",
-        headers,
-        body: JSON.stringify(params),
+        httpMethod: "POST",
+        body: params,
+        authToken: serviceToken,
+        useDPoPForAuthToken: false,
+        useSession: false,
       },
     );
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({
-        error: "Unknown",
-        message: res.statusText,
-      }));
-      const error = new Error(
-        err.message || err.error || res.statusText,
-      ) as Error & {
-        status: number;
-        error: string;
-      };
-      error.status = res.status;
-      error.error = err.error;
-      throw error;
-    }
-
-    const session = (await res.json()) as Session;
-    this.accessToken = session.accessJwt;
-    this.refreshToken = session.refreshJwt;
+    this.setAccessToken(session.accessJwt);
+    this.setRefreshToken(session.refreshJwt);
     return session;
   }
 
@@ -651,7 +592,7 @@ export class AtprotoClient {
   async submitPlcOperation(operation: PlcOperation): Promise<void> {
     apiLog(
       "POST",
-      `${this.baseUrl}/xrpc/com.atproto.identity.submitPlcOperation`,
+      `${this.getBaseUrl()}/xrpc/com.atproto.identity.submitPlcOperation`,
       {
         operationType: operation.type,
         operationPrev: operation.prev,
@@ -666,7 +607,7 @@ export class AtprotoClient {
     );
     apiLog(
       "POST",
-      `${this.baseUrl}/xrpc/com.atproto.identity.submitPlcOperation COMPLETE`,
+      `${this.getBaseUrl()}/xrpc/com.atproto.identity.submitPlcOperation COMPLETE`,
       {
         durationMs: Date.now() - start,
       },
@@ -680,14 +621,17 @@ export class AtprotoClient {
   }
 
   async activateAccount(): Promise<void> {
-    apiLog("POST", `${this.baseUrl}/xrpc/com.atproto.server.activateAccount`);
+    apiLog(
+      "POST",
+      `${this.getBaseUrl()}/xrpc/com.atproto.server.activateAccount`,
+    );
     const start = Date.now();
     await this.unwrapAtcute(
       this.client.post("com.atproto.server.activateAccount", { as: null }),
     );
     apiLog(
       "POST",
-      `${this.baseUrl}/xrpc/com.atproto.server.activateAccount COMPLETE`,
+      `${this.getBaseUrl()}/xrpc/com.atproto.server.activateAccount COMPLETE`,
       {
         durationMs: Date.now() - start,
       },
@@ -695,7 +639,10 @@ export class AtprotoClient {
   }
 
   async deactivateAccount(): Promise<void> {
-    apiLog("POST", `${this.baseUrl}/xrpc/com.atproto.server.deactivateAccount`);
+    apiLog(
+      "POST",
+      `${this.getBaseUrl()}/xrpc/com.atproto.server.deactivateAccount`,
+    );
     const start = Date.now();
     try {
       await this.unwrapAtcute(
@@ -706,7 +653,7 @@ export class AtprotoClient {
       );
       apiLog(
         "POST",
-        `${this.baseUrl}/xrpc/com.atproto.server.deactivateAccount COMPLETE`,
+        `${this.getBaseUrl()}/xrpc/com.atproto.server.deactivateAccount COMPLETE`,
         {
           durationMs: Date.now() - start,
           success: true,
@@ -716,7 +663,7 @@ export class AtprotoClient {
       const err = e as Error & { error?: string; status?: number };
       apiLog(
         "POST",
-        `${this.baseUrl}/xrpc/com.atproto.server.deactivateAccount FAILED`,
+        `${this.getBaseUrl()}/xrpc/com.atproto.server.deactivateAccount FAILED`,
         {
           durationMs: Date.now() - start,
           error: err.message,
@@ -753,8 +700,8 @@ export class AtprotoClient {
         body: { identifier, password, allowDeactivated: true },
       },
     );
-    this.accessToken = session.accessJwt;
-    this.refreshToken = session.refreshJwt;
+    this.setAccessToken(session.accessJwt);
+    this.setRefreshToken(session.refreshJwt);
     return session;
   }
 
@@ -819,39 +766,13 @@ export class AtprotoClient {
     params: CreatePasskeyAccountParams,
     serviceToken?: string,
   ): Promise<PasskeyAccountSetup> {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (serviceToken) {
-      headers["Authorization"] = `Bearer ${serviceToken}`;
-    }
-
-    const res = await fetch(
-      `${this.baseUrl}/xrpc/_account.createPasskeyAccount`,
-      {
-        method: "POST",
-        headers,
-        body: JSON.stringify(params),
-      },
-    );
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({
-        error: "Unknown",
-        message: res.statusText,
-      }));
-      const error = new Error(
-        err.message || err.error || res.statusText,
-      ) as Error & {
-        status: number;
-        error: string;
-      };
-      error.status = res.status;
-      error.error = err.error;
-      throw error;
-    }
-
-    return res.json();
+    return this.xrpc("_account.createPasskeyAccount", {
+      httpMethod: "POST",
+      body: params,
+      authToken: serviceToken,
+      useDPoPForAuthToken: false,
+      useSession: false,
+    });
   }
 
   async startPasskeyRegistrationForSetup(
