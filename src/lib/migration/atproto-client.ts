@@ -15,6 +15,7 @@ import type {
   Session,
   StartPasskeyRegistrationResponse,
 } from "./types.ts";
+import { Client } from "@atcute/client";
 import { getPdsEndpoint } from "@atcute/identity";
 import {
   DohJsonHandleResolver,
@@ -38,8 +39,30 @@ function apiLog(
   }
 }
 
+type AtcuteResponse =
+  | { ok: true; status: number; headers: Headers; data: unknown }
+  | {
+      ok: false;
+      status: number;
+      headers: Headers;
+      data: { error: string; message?: string };
+    };
+
+type XrpcError = Error & { status: number; error: string };
+
+function createXrpcError(
+  status: number,
+  data: { error: string; message?: string },
+): XrpcError {
+  const error = new Error(data.message || data.error) as XrpcError;
+  error.status = status;
+  error.error = data.error;
+  return error;
+}
+
 export class AtprotoClient {
   private baseUrl: string;
+  private client: Client;
   private accessToken: string | null = null;
   private refreshToken: string | null = null;
   private dpopKeyPair: DPoPKeyPair | null = null;
@@ -50,6 +73,102 @@ export class AtprotoClient {
 
   constructor(pdsUrl: string) {
     this.baseUrl = pdsUrl.replace(/\/$/, "");
+    this.client = new Client({
+      handler: (pathname, init) => this.handleAtcuteFetch(pathname, init),
+    });
+  }
+
+  private async unwrapAtcute<T>(request: Promise<AtcuteResponse>): Promise<T> {
+    const response = await request;
+    if (!response.ok) {
+      throw createXrpcError(response.status, response.data);
+    }
+    return response.data as T;
+  }
+
+  private async handleAtcuteFetch(
+    pathname: string,
+    init: RequestInit,
+  ): Promise<Response> {
+    const url = new URL(pathname, `${this.baseUrl}/`).toString();
+    const initialHeaders = new Headers(init.headers);
+    const explicitAuthorization = initialHeaders.get("Authorization");
+    const explicitToken = explicitAuthorization?.replace(
+      /^(?:Bearer|DPoP)\s+/i,
+      "",
+    );
+    const method = (init.method ?? "GET").toUpperCase();
+    const canRetry = !(init.body instanceof ReadableStream);
+
+    const makeRequest = async (nonce?: string): Promise<Response> => {
+      const headers = new Headers(initialHeaders);
+      const token = explicitToken ?? this.accessToken;
+      if (token) {
+        if (this.dpopKeyPair) {
+          headers.set("Authorization", `DPoP ${token}`);
+          headers.set(
+            "DPoP",
+            await createDPoPProof(
+              this.dpopKeyPair,
+              method,
+              url.split("?")[0]!,
+              nonce,
+              await computeAccessTokenHash(token),
+            ),
+          );
+        } else {
+          headers.set("Authorization", `Bearer ${token}`);
+        }
+      }
+      return fetch(url, { ...init, method, headers });
+    };
+
+    const retryWithNonce = async (response: Response): Promise<Response> => {
+      if (response.ok || !this.dpopKeyPair || !canRetry) {
+        return response;
+      }
+      const nonce = response.headers.get("DPoP-Nonce");
+      if (!nonce || nonce === this.dpopNonce) {
+        return response;
+      }
+      this.dpopNonce = nonce;
+      return makeRequest(nonce);
+    };
+
+    let response = await makeRequest(this.dpopNonce ?? undefined);
+    response = await retryWithNonce(response);
+
+    if (
+      !response.ok &&
+      !explicitAuthorization &&
+      canRetry &&
+      (await this.isExpiredTokenResponse(response)) &&
+      (await this.tryRefreshToken())
+    ) {
+      response = await makeRequest(this.dpopNonce ?? undefined);
+      response = await retryWithNonce(response);
+    }
+
+    const nonce = response.headers.get("DPoP-Nonce");
+    if (nonce) {
+      this.dpopNonce = nonce;
+    }
+    return response;
+  }
+
+  private async isExpiredTokenResponse(response: Response): Promise<boolean> {
+    if (response.status !== 400 && response.status !== 401) {
+      return false;
+    }
+    const data = (await response
+      .clone()
+      .json()
+      .catch(() => null)) as { error?: string; message?: string } | null;
+    return (
+      data?.error === "ExpiredToken" ||
+      data?.error === "invalid_token" ||
+      Boolean(data?.message?.includes("expired"))
+    );
   }
 
   setAccessToken(token: string | null) {
@@ -304,17 +423,10 @@ export class AtprotoClient {
     password: string,
     authFactorToken?: string,
   ): Promise<Session> {
-    const body: Record<string, string> = { identifier, password };
-    if (authFactorToken) {
-      body.authFactorToken = authFactorToken;
-    }
-
-    const session = await this.xrpc<Session>(
-      "com.atproto.server.createSession",
-      {
-        httpMethod: "POST",
-        body,
-      },
+    const session = await this.unwrapAtcute<Session>(
+      this.client.post("com.atproto.server.createSession", {
+        input: { identifier, password, authFactorToken },
+      }),
     );
 
     this.accessToken = session.accessJwt;
@@ -323,33 +435,39 @@ export class AtprotoClient {
   }
 
   async refreshSession(refreshJwt: string): Promise<Session> {
-    const session = await this.xrpc<Session>(
-      "com.atproto.server.refreshSession",
-      {
-        httpMethod: "POST",
-        authToken: refreshJwt,
-      },
+    const session = await this.unwrapAtcute<Session>(
+      this.client.post("com.atproto.server.refreshSession", {
+        headers: { Authorization: `Bearer ${refreshJwt}` },
+      }),
     );
     this.accessToken = session.accessJwt;
     return session;
   }
 
   describeServer(): Promise<ServerDescription> {
-    return this.xrpc<ServerDescription>("com.atproto.server.describeServer");
+    return this.unwrapAtcute(
+      this.client.get("com.atproto.server.describeServer"),
+    );
   }
 
   getServiceAuth(aud: string, lxm?: string): Promise<{ token: string }> {
-    const params: Record<string, string> = { aud };
-    if (lxm) {
-      params.lxm = lxm;
-    }
-    return this.xrpc("com.atproto.server.getServiceAuth", { params });
+    return this.unwrapAtcute(
+      this.client.get("com.atproto.server.getServiceAuth", {
+        params: {
+          aud,
+          lxm: lxm as `${string}.${string}.${string}` | undefined,
+        },
+      }),
+    );
   }
 
   getRepo(did: string): Promise<Uint8Array> {
-    return this.xrpc("com.atproto.sync.getRepo", {
-      params: { did },
-    });
+    return this.unwrapAtcute(
+      this.client.get("com.atproto.sync.getRepo", {
+        params: { did: did as `did:${string}:${string}` },
+        as: "bytes",
+      }),
+    );
   }
 
   async listBlobs(
@@ -357,58 +475,46 @@ export class AtprotoClient {
     cursor?: string,
     limit = 100,
   ): Promise<{ cids: string[]; cursor?: string }> {
-    const params: Record<string, string> = { did, limit: String(limit) };
-    if (cursor) {
-      params.cursor = cursor;
-    }
-    return this.xrpc("com.atproto.sync.listBlobs", { params });
+    return this.unwrapAtcute(
+      this.client.get("com.atproto.sync.listBlobs", {
+        params: {
+          did: did as `did:${string}:${string}`,
+          limit,
+          cursor,
+        },
+      }),
+    );
   }
 
   async getBlob(did: string, cid: string): Promise<Uint8Array> {
-    return this.xrpc("com.atproto.sync.getBlob", {
-      params: { did, cid },
-    });
+    return this.unwrapAtcute(
+      this.client.get("com.atproto.sync.getBlob", {
+        params: {
+          did: did as `did:${string}:${string}`,
+          cid: cid as `${string}.${string}`,
+        },
+        as: "bytes",
+      }),
+    );
   }
 
   async getBlobWithContentType(
     did: string,
     cid: string,
   ): Promise<{ data: Uint8Array; contentType: string }> {
-    const url = `${this.baseUrl}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(
-      did,
-    )}&cid=${encodeURIComponent(cid)}`;
-    const headers: Record<string, string> = {};
-    if (this.accessToken) {
-      if (this.dpopKeyPair) {
-        headers["Authorization"] = `DPoP ${this.accessToken}`;
-        const tokenHash = await computeAccessTokenHash(this.accessToken);
-        const dpopProof = await createDPoPProof(
-          this.dpopKeyPair,
-          "GET",
-          url.split("?")[0],
-          this.dpopNonce ?? undefined,
-          tokenHash,
-        );
-        headers["DPoP"] = dpopProof;
-      } else {
-        headers["Authorization"] = `Bearer ${this.accessToken}`;
-      }
-    }
-    const res = await fetch(url, { headers });
-    const newNonce = res.headers.get("DPoP-Nonce");
-    if (newNonce) {
-      this.dpopNonce = newNonce;
-    }
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({
-        error: "Unknown",
-        message: res.statusText,
-      }));
-      throw new Error(err.message || err.error || res.statusText);
+    const response = (await this.client.get("com.atproto.sync.getBlob", {
+      params: {
+        did: did as `did:${string}:${string}`,
+        cid: cid as `${string}.${string}`,
+      },
+      as: "bytes",
+    })) as AtcuteResponse;
+    if (!response.ok) {
+      throw createXrpcError(response.status, response.data);
     }
     const contentType =
-      res.headers.get("content-type") || "application/octet-stream";
-    const data = new Uint8Array(await res.arrayBuffer());
+      response.headers.get("content-type") || "application/octet-stream";
+    const data = response.data as Uint8Array;
     return { data, contentType };
   }
 
@@ -416,22 +522,27 @@ export class AtprotoClient {
     data: Uint8Array,
     mimeType: string,
   ): Promise<{ blob: BlobRef }> {
-    return this.xrpc("com.atproto.repo.uploadBlob", {
-      httpMethod: "POST",
-      rawBody: data,
-      contentType: mimeType,
-    });
+    return this.unwrapAtcute(
+      this.client.post("com.atproto.repo.uploadBlob", {
+        input: data,
+        headers: { "Content-Type": mimeType },
+      }),
+    );
   }
 
   async getPreferences(): Promise<Preferences> {
-    return this.xrpc("app.bsky.actor.getPreferences");
+    return this.unwrapAtcute(
+      this.client.get("app.bsky.actor.getPreferences", { params: {} }),
+    );
   }
 
   async putPreferences(preferences: Preferences): Promise<void> {
-    await this.xrpc("app.bsky.actor.putPreferences", {
-      httpMethod: "POST",
-      body: preferences,
-    });
+    await this.unwrapAtcute(
+      this.client.post("app.bsky.actor.putPreferences", {
+        input: preferences as never,
+        as: null,
+      }),
+    );
   }
 
   async createAccount(
@@ -477,11 +588,13 @@ export class AtprotoClient {
   }
 
   async importRepo(car: Uint8Array): Promise<void> {
-    await this.xrpc("com.atproto.repo.importRepo", {
-      httpMethod: "POST",
-      rawBody: car,
-      contentType: "application/vnd.ipld.car",
-    });
+    await this.unwrapAtcute(
+      this.client.post("com.atproto.repo.importRepo", {
+        input: car,
+        headers: { "Content-Type": "application/vnd.ipld.car" },
+        as: null,
+      }),
+    );
   }
 
   async listMissingBlobs(
@@ -495,13 +608,17 @@ export class AtprotoClient {
     if (cursor) {
       params.cursor = cursor;
     }
-    return this.xrpc("com.atproto.repo.listMissingBlobs", { params });
+    return this.unwrapAtcute(
+      this.client.get("com.atproto.repo.listMissingBlobs", { params }),
+    );
   }
 
   async requestPlcOperationSignature(): Promise<void> {
-    await this.xrpc("com.atproto.identity.requestPlcOperationSignature", {
-      httpMethod: "POST",
-    });
+    await this.unwrapAtcute(
+      this.client.post("com.atproto.identity.requestPlcOperationSignature", {
+        as: null,
+      }),
+    );
   }
 
   async signPlcOperation(params: {
@@ -511,10 +628,11 @@ export class AtprotoClient {
     verificationMethods?: { atproto?: string };
     services?: { atproto_pds?: { type: string; endpoint: string } };
   }): Promise<{ operation: PlcOperation }> {
-    return this.xrpc("com.atproto.identity.signPlcOperation", {
-      httpMethod: "POST",
-      body: params,
-    });
+    return this.unwrapAtcute(
+      this.client.post("com.atproto.identity.signPlcOperation", {
+        input: params,
+      }),
+    );
   }
 
   async submitPlcOperation(operation: PlcOperation): Promise<void> {
@@ -527,10 +645,12 @@ export class AtprotoClient {
       },
     );
     const start = Date.now();
-    await this.xrpc("com.atproto.identity.submitPlcOperation", {
-      httpMethod: "POST",
-      body: { operation },
-    });
+    await this.unwrapAtcute(
+      this.client.post("com.atproto.identity.submitPlcOperation", {
+        input: { operation: operation as unknown as Record<string, unknown> },
+        as: null,
+      }),
+    );
     apiLog(
       "POST",
       `${this.baseUrl}/xrpc/com.atproto.identity.submitPlcOperation COMPLETE`,
@@ -541,15 +661,17 @@ export class AtprotoClient {
   }
 
   async getRecommendedDidCredentials(): Promise<DidCredentials> {
-    return this.xrpc("com.atproto.identity.getRecommendedDidCredentials");
+    return this.unwrapAtcute(
+      this.client.get("com.atproto.identity.getRecommendedDidCredentials"),
+    );
   }
 
   async activateAccount(): Promise<void> {
     apiLog("POST", `${this.baseUrl}/xrpc/com.atproto.server.activateAccount`);
     const start = Date.now();
-    await this.xrpc("com.atproto.server.activateAccount", {
-      httpMethod: "POST",
-    });
+    await this.unwrapAtcute(
+      this.client.post("com.atproto.server.activateAccount", { as: null }),
+    );
     apiLog(
       "POST",
       `${this.baseUrl}/xrpc/com.atproto.server.activateAccount COMPLETE`,
@@ -563,9 +685,12 @@ export class AtprotoClient {
     apiLog("POST", `${this.baseUrl}/xrpc/com.atproto.server.deactivateAccount`);
     const start = Date.now();
     try {
-      await this.xrpc("com.atproto.server.deactivateAccount", {
-        httpMethod: "POST",
-      });
+      await this.unwrapAtcute(
+        this.client.post("com.atproto.server.deactivateAccount", {
+          input: {},
+          as: null,
+        }),
+      );
       apiLog(
         "POST",
         `${this.baseUrl}/xrpc/com.atproto.server.deactivateAccount COMPLETE`,
@@ -591,13 +716,17 @@ export class AtprotoClient {
   }
 
   async checkAccountStatus(): Promise<AccountStatus> {
-    return this.xrpc("com.atproto.server.checkAccountStatus");
+    return this.unwrapAtcute(
+      this.client.get("com.atproto.server.checkAccountStatus"),
+    );
   }
 
   async resolveHandle(handle: string): Promise<{ did: string }> {
-    return this.xrpc("com.atproto.identity.resolveHandle", {
-      params: { handle },
-    });
+    return this.unwrapAtcute(
+      this.client.get("com.atproto.identity.resolveHandle", {
+        params: { handle: handle as `${string}.${string}` },
+      }),
+    );
   }
 
   async loginDeactivated(

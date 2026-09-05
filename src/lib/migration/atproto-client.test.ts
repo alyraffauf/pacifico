@@ -31,14 +31,13 @@ describe("AtprotoClient transport", () => {
     await expect(client.getRepo("did:plc:alice")).resolves.toEqual(
       new Uint8Array([1, 2, 3]),
     );
-    expect(fetchMock).toHaveBeenCalledWith(
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe(
       "https://pds.example/xrpc/com.atproto.sync.getRepo?did=did%3Aplc%3Aalice",
-      expect.objectContaining({
-        method: "GET",
-        headers: expect.objectContaining({
-          Authorization: "Bearer access-token",
-        }),
-      }),
+    );
+    expect(init?.method).toBe("GET");
+    expect(new Headers(init?.headers).get("Authorization")).toBe(
+      "Bearer access-token",
     );
   });
 
@@ -126,12 +125,116 @@ describe("AtprotoClient transport", () => {
     await client.describeServer();
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    const retryHeaders = fetchMock.mock.calls[1]?.[1]?.headers as Record<
-      string,
-      string
-    >;
-    expect(retryHeaders.Authorization).toBe("DPoP access-token");
-    expect(retryHeaders.DPoP.split(".")).toHaveLength(3);
+    const retryHeaders = new Headers(fetchMock.mock.calls[1]?.[1]?.headers);
+    expect(retryHeaders.get("Authorization")).toBe("DPoP access-token");
+    expect(retryHeaders.get("DPoP")?.split(".")).toHaveLength(3);
+  });
+
+  it("uses an explicit refresh token without replacing it with the access token", async () => {
+    const session = {
+      did: "did:plc:alice",
+      handle: "alice.example",
+      accessJwt: "new-access",
+      refreshJwt: "new-refresh",
+    };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse(session));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new AtprotoClient("https://pds.example");
+    client.setAccessToken("old-access");
+
+    await expect(client.refreshSession("explicit-refresh")).resolves.toEqual(
+      session,
+    );
+    expect(
+      new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get("Authorization"),
+    ).toBe("Bearer explicit-refresh");
+  });
+
+  it("returns the original error when token refresh fails", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse(
+          { error: "ExpiredToken", message: "access token expired" },
+          { status: 401 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ error: "InvalidToken" }, { status: 401 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new AtprotoClient("https://pds.example");
+    client.setAccessToken("old-access");
+    client.setRefreshToken("bad-refresh");
+
+    const error = await client.describeServer().catch((caught) => caught);
+    expect(error).toMatchObject({
+      message: "access token expired",
+      error: "ExpiredToken",
+      status: 401,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves blob upload and download content types", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          blob: {
+            $type: "blob",
+            ref: { $link: "bafyblob" },
+            mimeType: "image/png",
+            size: 3,
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(new Uint8Array([1, 2, 3]), {
+          headers: { "Content-Type": "image/png" },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new AtprotoClient("https://pds.example");
+    const bytes = new Uint8Array([1, 2, 3]);
+
+    await client.uploadBlob(bytes, "image/png");
+    await expect(
+      client.getBlobWithContentType("did:plc:alice", "bafyblob"),
+    ).resolves.toEqual({ data: bytes, contentType: "image/png" });
+    expect(
+      new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get("Content-Type"),
+    ).toBe("image/png");
+    expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(bytes);
+  });
+
+  it("keeps custom deactivated login fields on the raw XRPC path", async () => {
+    const session = {
+      did: "did:plc:alice",
+      handle: "alice.example",
+      accessJwt: "access",
+      refreshJwt: "refresh",
+    };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse(session));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await new AtprotoClient("https://pds.example").loginDeactivated(
+      "alice.example",
+      "password",
+    );
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "https://pds.example/xrpc/com.atproto.server.createSession",
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string)).toEqual({
+      identifier: "alice.example",
+      password: "password",
+      allowDeactivated: true,
+    });
   });
 });
 

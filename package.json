@@ -22,6 +22,9 @@
     "test:server": "bun test ./tests/server.bun.ts"
   },
   "dependencies": {
+    "@atcute/atproto": "4.0.4",
+    "@atcute/bluesky": "4.0.20",
+    "@atcute/client": "5.1.1",
     "@atcute/crypto": "^2.4.4",
     "@atcute/did-plc": "^1.0.1",
     "@atcute/identity": "2.0.2",
