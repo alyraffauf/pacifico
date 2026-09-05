@@ -137,12 +137,13 @@ describe("AtprotoClient transport", () => {
 
 describe("identity resolution", () => {
   it("uses the public resolver for Bluesky handles", async () => {
+    const did = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa";
     const fetchMock = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(jsonResponse({ did: "did:plc:alice" }))
+      .mockResolvedValueOnce(jsonResponse({ did }))
       .mockResolvedValueOnce(
         jsonResponse({
-          id: "did:plc:alice",
+          id: did,
           service: [
             {
               id: "#atproto_pds",
@@ -155,10 +156,12 @@ describe("identity resolution", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(resolvePdsUrl("@alice.bsky.social")).resolves.toEqual({
-      did: "did:plc:alice",
+      did,
       pdsUrl: "https://alice.example",
     });
-    expect(fetchMock.mock.calls[0]?.[0]).toContain("public.api.bsky.app");
+    expect(fetchMock.mock.calls[0]?.[0].toString()).toContain(
+      "public.api.bsky.app",
+    );
   });
 
   it("tries DNS before the well-known handle endpoint", async () => {
@@ -183,11 +186,56 @@ describe("identity resolution", () => {
     await expect(resolvePdsUrl("alice.example")).resolves.toMatchObject({
       did: "did:web:alice.example",
     });
-    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+    expect(fetchMock.mock.calls.map((call) => call[0].toString())).toEqual([
       "https://dns.google/resolve?name=_atproto.alice.example&type=TXT",
       "https://alice.example/.well-known/atproto-did",
       "https://alice.example/.well-known/did.json",
     ]);
+  });
+
+  it("uses a valid DNS handle record without requesting well-known", async () => {
+    const did = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa";
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          Status: 0,
+          TC: false,
+          RD: true,
+          RA: true,
+          AD: true,
+          CD: false,
+          Question: [{ name: "_atproto.alice.example", type: 16 }],
+          Answer: [
+            {
+              name: "_atproto.alice.example",
+              type: 16,
+              TTL: 60,
+              data: `"did=${did}"`,
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: did,
+          service: [
+            {
+              id: "#atproto_pds",
+              type: "AtprotoPersonalDataServer",
+              serviceEndpoint: "https://pds.example",
+            },
+          ],
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(resolvePdsUrl("alice.example")).resolves.toEqual({
+      did,
+      pdsUrl: "https://pds.example",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]?.[0].toString()).toContain("plc.directory");
   });
 
   it("rejects unsupported DID methods and documents without a PDS", async () => {
@@ -203,5 +251,24 @@ describe("identity resolution", () => {
     await expect(resolvePdsUrl("did:plc:alice")).rejects.toThrow(
       "No PDS service found",
     );
+  });
+
+  it.each([
+    [
+      "did:web:example.com%3A8443",
+      "https://example.com:8443/.well-known/did.json",
+    ],
+    [
+      "did:web:example.com:users:alice",
+      "https://example.com/users/alice/did.json",
+    ],
+  ])("resolves standards-correct web DID URLs", async (did, expectedUrl) => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse({ id: did }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(resolveDidDocument(did)).resolves.toMatchObject({ id: did });
+    expect(fetchMock.mock.calls[0]?.[0].toString()).toBe(expectedUrl);
   });
 });

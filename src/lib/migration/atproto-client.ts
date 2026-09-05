@@ -15,6 +15,14 @@ import type {
   Session,
   StartPasskeyRegistrationResponse,
 } from "./types.ts";
+import { getPdsEndpoint } from "@atcute/identity";
+import {
+  DohJsonHandleResolver,
+  PlcDidDocumentResolver,
+  WebDidDocumentResolver,
+  WellKnownHandleResolver,
+  XrpcHandleResolver,
+} from "@atcute/identity-resolver";
 
 function apiLog(
   method: string,
@@ -1011,24 +1019,17 @@ export async function refreshSourceOAuthToken(
 
 export async function resolveDidDocument(did: string): Promise<DidDocument> {
   if (did.startsWith("did:plc:")) {
-    const res = await fetch(`https://plc.directory/${did}`);
-    if (!res.ok) {
-      throw new Error(`Failed to resolve DID: ${res.statusText}`);
-    }
-    return res.json();
+    const resolver = new PlcDidDocumentResolver({ fetch });
+    return resolver.resolve(
+      did as Parameters<typeof resolver.resolve>[0],
+    ) as Promise<DidDocument>;
   }
 
   if (did.startsWith("did:web:")) {
-    const domain = did.slice(8).replace(/%3A/g, ":");
-    const url = domain.includes("/")
-      ? `https://${domain}/did.json`
-      : `https://${domain}/.well-known/did.json`;
-
-    const res = await fetch(url);
-    if (!res.ok) {
-      throw new Error(`Failed to resolve DID: ${res.statusText}`);
-    }
-    return res.json();
+    const resolver = new WebDidDocumentResolver({ fetch });
+    return resolver.resolve(
+      did as Parameters<typeof resolver.resolve>[0],
+    ) as Promise<DidDocument>;
   }
 
   throw new Error(`Unsupported DID method: ${did}`);
@@ -1045,42 +1046,31 @@ export async function resolvePdsUrl(
     const handle = handleOrDid.replace(/^@/, "");
 
     if (handle.endsWith(".bsky.social")) {
-      const res = await fetch(
-        `https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(
-          handle,
-        )}`,
+      const resolver = new XrpcHandleResolver({
+        serviceUrl: "https://public.api.bsky.app",
+        fetch,
+      });
+      did = await resolver.resolve(
+        handle as Parameters<typeof resolver.resolve>[0],
       );
-      if (!res.ok) {
-        throw new Error(`Failed to resolve handle: ${res.statusText}`);
-      }
-      const data = await res.json();
-      did = data.did;
     } else {
-      const dnsRes = await fetch(
-        `https://dns.google/resolve?name=_atproto.${handle}&type=TXT`,
-      );
-      if (dnsRes.ok) {
-        const dnsData = await dnsRes.json();
-        const txtRecords: Array<{ data?: string }> = dnsData.Answer ?? [];
-        const didRecord = txtRecords
-          .map((record) => record.data?.replace(/"/g, "") ?? "")
-          .find((txt) => txt.startsWith("did="));
-        if (didRecord) {
-          did = didRecord.slice(4);
-        }
-      }
-
-      if (!did) {
-        const wellKnownRes = await fetch(
-          `https://${handle}/.well-known/atproto-did`,
+      const dnsResolver = new DohJsonHandleResolver({
+        dohUrl: "https://dns.google/resolve",
+        fetch,
+      });
+      try {
+        did = await dnsResolver.resolve(
+          handle as Parameters<typeof dnsResolver.resolve>[0],
         );
-        if (wellKnownRes.ok) {
-          did = (await wellKnownRes.text()).trim();
+      } catch {
+        const wellKnownResolver = new WellKnownHandleResolver({ fetch });
+        try {
+          did = await wellKnownResolver.resolve(
+            handle as Parameters<typeof wellKnownResolver.resolve>[0],
+          );
+        } catch {
+          throw new Error(`Could not resolve handle: ${handle}`);
         }
-      }
-
-      if (!did) {
-        throw new Error(`Could not resolve handle: ${handle}`);
       }
     }
   }
@@ -1091,15 +1081,12 @@ export async function resolvePdsUrl(
 
   const didDoc = await resolveDidDocument(did);
 
-  const pdsService = didDoc.service?.find(
-    (s: { type: string }) => s.type === "AtprotoPersonalDataServer",
-  );
-
-  if (!pdsService) {
+  const pdsUrl = getPdsEndpoint(didDoc as Parameters<typeof getPdsEndpoint>[0]);
+  if (!pdsUrl) {
     throw new Error("No PDS service found in DID document");
   }
 
-  return { did, pdsUrl: pdsService.serviceEndpoint };
+  return { did, pdsUrl };
 }
 
 export function createLocalClient(): AtprotoClient {

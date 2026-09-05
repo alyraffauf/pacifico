@@ -24,6 +24,8 @@
   "dependencies": {
     "@atcute/crypto": "^2.4.4",
     "@atcute/did-plc": "^1.0.1",
+    "@atcute/identity": "2.0.2",
+    "@atcute/identity-resolver": "2.0.1",
     "@atcute/multibase": "^1.2.5",
     "@tabler/icons-react": "^3.46.0",
     "react": "^19.2.8",
