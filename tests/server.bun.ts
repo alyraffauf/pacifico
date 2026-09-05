@@ -8,7 +8,10 @@ let distributionDirectory = "";
 
 beforeAll(async () => {
   distributionDirectory = await mkdtemp(join(tmpdir(), "pacifico-server-test-"));
-  await Bun.write(join(distributionDirectory, "index.html"), "<main>Pacifico</main>");
+  await Bun.write(
+    join(distributionDirectory, "index.html"),
+    "<title>__FRONTEND_HOSTNAME__</title><main>Pacifico</main>",
+  );
   await Bun.write(
     join(distributionDirectory, "oauth-client-metadata.json"),
     '{"client_id":"https://__FRONTEND_HOSTNAME__/oauth-client-metadata.json"}',
@@ -36,6 +39,12 @@ describe("Pacifico server", () => {
     expect(response.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(await response.text()).toContain("<title>pds.example.com</title>");
+  });
+
+  it("substitutes the hostname when index.html is requested directly", async () => {
+    const response = await handler()(new Request("https://pds.example.com/index.html"));
+    expect(await response.text()).toContain("<title>pds.example.com</title>");
   });
 
   it("uses the configured origin in OAuth client metadata", async () => {

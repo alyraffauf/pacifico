@@ -95,9 +95,28 @@ function resolvePublicOrigin(requestUrl: URL, configuredOrigin?: string): URL {
 
 export function createRequestHandler(options: ServerOptions) {
   const indexFile = Bun.file(join(options.distributionDirectory, "index.html"));
+  const indexHtml = indexFile.text();
   const oauthClientMetadataFile = Bun.file(
     join(options.distributionDirectory, "oauth-client-metadata.json"),
   );
+
+  async function serveIndex(
+    method: string,
+    hostname: string,
+  ): Promise<Response> {
+    const html = (await indexHtml).replaceAll(
+      "__FRONTEND_HOSTNAME__",
+      hostname,
+    );
+    return responseWithSecurityHeaders(
+      new Response(method === "HEAD" ? null : html, {
+        headers: {
+          "cache-control": "no-store",
+          "content-type": "text/html; charset=utf-8",
+        },
+      }),
+    );
+  }
 
   return async function handleRequest(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -167,6 +186,10 @@ export function createRequestHandler(options: ServerOptions) {
       );
     }
 
+    if (url.pathname === "/index.html") {
+      return serveIndex(request.method, publicOrigin.hostname);
+    }
+
     const publicPath = resolvePublicFile(
       options.distributionDirectory,
       url.pathname,
@@ -189,14 +212,7 @@ export function createRequestHandler(options: ServerOptions) {
       );
     }
 
-    return responseWithSecurityHeaders(
-      new Response(request.method === "HEAD" ? null : indexFile, {
-        headers: {
-          "cache-control": "no-store",
-          "content-type": "text/html; charset=utf-8",
-        },
-      }),
-    );
+    return serveIndex(request.method, publicOrigin.hostname);
   };
 }
 

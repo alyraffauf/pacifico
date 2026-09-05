@@ -5,7 +5,7 @@ import App from "./App.tsx";
 import "./index.css";
 import { initializeI18n } from "./lib/i18n.ts";
 
-document.title = `${globalThis.location.hostname} · PDS account manager`;
+document.title = globalThis.location.hostname;
 
 await initializeI18n();
 

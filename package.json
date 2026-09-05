@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "generate:og": "bun run scripts/generate-og.tsx",
     "preview": "vite preview",
     "start": "bun run server.ts",
     "check": "tsc -b --pretty false",
@@ -30,6 +31,7 @@
   },
   "devDependencies": {
     "@catppuccin/tailwindcss": "^1.0.0",
+    "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.1.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
@@ -40,6 +42,7 @@
     "@vitejs/plugin-react": "^5.0.0",
     "@vitest/coverage-v8": "^4.0.16",
     "jsdom": "^25.0.1",
+    "satori": "^0.33.4",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.9.0",
     "vite": "^7.3.0",
