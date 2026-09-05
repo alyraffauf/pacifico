@@ -8,19 +8,28 @@ import {
 } from "@atcute/identity-resolver";
 import type { DidDocument } from "./types.ts";
 
+type PlcDid = Parameters<PlcDidDocumentResolver["resolve"]>[0];
+type WebDid = Parameters<WebDidDocumentResolver["resolve"]>[0];
+type AtprotoHandle = Parameters<XrpcHandleResolver["resolve"]>[0];
+type AtcuteDidDocument = Parameters<typeof getPdsEndpoint>[0];
+
+const asPlcDid = (did: string): PlcDid => did as PlcDid;
+const asWebDid = (did: string): WebDid => did as WebDid;
+const asHandle = (handle: string): AtprotoHandle => handle as AtprotoHandle;
+const asMigrationDidDocument = (document: unknown): DidDocument =>
+  document as DidDocument;
+const asAtcuteDidDocument = (document: DidDocument): AtcuteDidDocument =>
+  document as AtcuteDidDocument;
+
 export async function resolveDidDocument(did: string): Promise<DidDocument> {
   if (did.startsWith("did:plc:")) {
     const resolver = new PlcDidDocumentResolver({ fetch });
-    return resolver.resolve(
-      did as Parameters<typeof resolver.resolve>[0],
-    ) as Promise<DidDocument>;
+    return asMigrationDidDocument(await resolver.resolve(asPlcDid(did)));
   }
 
   if (did.startsWith("did:web:")) {
     const resolver = new WebDidDocumentResolver({ fetch });
-    return resolver.resolve(
-      did as Parameters<typeof resolver.resolve>[0],
-    ) as Promise<DidDocument>;
+    return asMigrationDidDocument(await resolver.resolve(asWebDid(did)));
   }
 
   throw new Error(`Unsupported DID method: ${did}`);
@@ -41,24 +50,18 @@ export async function resolvePdsUrl(
         serviceUrl: "https://public.api.bsky.app",
         fetch,
       });
-      did = await resolver.resolve(
-        handle as Parameters<typeof resolver.resolve>[0],
-      );
+      did = await resolver.resolve(asHandle(handle));
     } else {
       const dnsResolver = new DohJsonHandleResolver({
         dohUrl: "https://dns.google/resolve",
         fetch,
       });
       try {
-        did = await dnsResolver.resolve(
-          handle as Parameters<typeof dnsResolver.resolve>[0],
-        );
+        did = await dnsResolver.resolve(asHandle(handle));
       } catch {
         const wellKnownResolver = new WellKnownHandleResolver({ fetch });
         try {
-          did = await wellKnownResolver.resolve(
-            handle as Parameters<typeof wellKnownResolver.resolve>[0],
-          );
+          did = await wellKnownResolver.resolve(asHandle(handle));
         } catch {
           throw new Error(`Could not resolve handle: ${handle}`);
         }
@@ -72,7 +75,7 @@ export async function resolvePdsUrl(
 
   const didDoc = await resolveDidDocument(did);
 
-  const pdsUrl = getPdsEndpoint(didDoc as Parameters<typeof getPdsEndpoint>[0]);
+  const pdsUrl = getPdsEndpoint(asAtcuteDidDocument(didDoc));
   if (!pdsUrl) {
     throw new Error("No PDS service found in DID document");
   }

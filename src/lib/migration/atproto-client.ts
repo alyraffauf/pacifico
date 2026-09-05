@@ -6,13 +6,19 @@ import type {
   CreatePasskeyAccountParams,
   DidCredentials,
   PasskeyAccountSetup,
-  PlcOperation,
   Preferences,
   ServerDescription,
   Session,
+  SignedPlcOperation,
   StartPasskeyRegistrationResponse,
 } from "./types.ts";
+import type {
+  ComAtprotoIdentitySignPlcOperation,
+  ComAtprotoIdentitySubmitPlcOperation,
+} from "@atcute/atproto";
+import type { AppBskyActorPutPreferences } from "@atcute/bluesky";
 import { Client } from "@atcute/client";
+import { validateIncomingOp } from "@atcute/did-plc";
 import {
   computeAccessTokenHash,
   createDPoPProof,
@@ -54,6 +60,23 @@ function createXrpcError(
   error.error = data.error;
   return error;
 }
+
+const asDid = (value: string): `did:${string}:${string}` =>
+  value as `did:${string}:${string}`;
+const asHandle = (value: string): `${string}.${string}` =>
+  value as `${string}.${string}`;
+const asCid = (value: string): `${string}.${string}` =>
+  value as `${string}.${string}`;
+const asNsid = (value: string): `${string}.${string}.${string}` =>
+  value as `${string}.${string}.${string}`;
+const asSignedPlcOperation = (value: unknown): SignedPlcOperation =>
+  value as SignedPlcOperation;
+const validateSignedPlcOperation = (operation: SignedPlcOperation): void => {
+  if (typeof operation.sig !== "string" || operation.sig.length === 0) {
+    throw new Error("A signed PLC operation is required");
+  }
+  validateIncomingOp(operation);
+};
 
 type TransportAuthentication =
   | { type: "session" }
@@ -427,7 +450,7 @@ export class AtprotoClient {
       this.client.get("com.atproto.server.getServiceAuth", {
         params: {
           aud,
-          lxm: lxm as `${string}.${string}.${string}` | undefined,
+          lxm: lxm ? asNsid(lxm) : undefined,
         },
       }),
     );
@@ -436,7 +459,7 @@ export class AtprotoClient {
   getRepo(did: string): Promise<Uint8Array> {
     return this.unwrapAtcute(
       this.client.get("com.atproto.sync.getRepo", {
-        params: { did: did as `did:${string}:${string}` },
+        params: { did: asDid(did) },
         as: "bytes",
       }),
     );
@@ -450,7 +473,7 @@ export class AtprotoClient {
     return this.unwrapAtcute(
       this.client.get("com.atproto.sync.listBlobs", {
         params: {
-          did: did as `did:${string}:${string}`,
+          did: asDid(did),
           limit,
           cursor,
         },
@@ -462,8 +485,8 @@ export class AtprotoClient {
     return this.unwrapAtcute(
       this.client.get("com.atproto.sync.getBlob", {
         params: {
-          did: did as `did:${string}:${string}`,
-          cid: cid as `${string}.${string}`,
+          did: asDid(did),
+          cid: asCid(cid),
         },
         as: "bytes",
       }),
@@ -474,19 +497,19 @@ export class AtprotoClient {
     did: string,
     cid: string,
   ): Promise<{ data: Uint8Array; contentType: string }> {
-    const response = (await this.client.get("com.atproto.sync.getBlob", {
+    const response = await this.client.get("com.atproto.sync.getBlob", {
       params: {
-        did: did as `did:${string}:${string}`,
-        cid: cid as `${string}.${string}`,
+        did: asDid(did),
+        cid: asCid(cid),
       },
       as: "bytes",
-    })) as AtcuteResponse;
+    });
     if (!response.ok) {
       throw createXrpcError(response.status, response.data);
     }
     const contentType =
       response.headers.get("content-type") || "application/octet-stream";
-    const data = response.data as Uint8Array;
+    const data = response.data;
     return { data, contentType };
   }
 
@@ -509,9 +532,10 @@ export class AtprotoClient {
   }
 
   async putPreferences(preferences: Preferences): Promise<void> {
+    const input: AppBskyActorPutPreferences.$input = preferences;
     await this.unwrapAtcute(
       this.client.post("app.bsky.actor.putPreferences", {
-        input: preferences as never,
+        input,
         as: null,
       }),
     );
@@ -576,15 +600,18 @@ export class AtprotoClient {
     alsoKnownAs?: string[];
     verificationMethods?: { atproto?: string };
     services?: { atproto_pds?: { type: string; endpoint: string } };
-  }): Promise<{ operation: PlcOperation }> {
-    return this.unwrapAtcute(
-      this.client.post("com.atproto.identity.signPlcOperation", {
-        input: params,
-      }),
-    );
+  }): Promise<{ operation: SignedPlcOperation }> {
+    const input: ComAtprotoIdentitySignPlcOperation.$input = params;
+    const result =
+      await this.unwrapAtcute<ComAtprotoIdentitySignPlcOperation.$output>(
+        this.client.post("com.atproto.identity.signPlcOperation", {
+          input,
+        }),
+      );
+    return { operation: asSignedPlcOperation(result.operation) };
   }
 
-  async submitPlcOperation(operation: PlcOperation): Promise<void> {
+  async submitPlcOperation(operation: SignedPlcOperation): Promise<void> {
     apiLog(
       "POST",
       `${this.getBaseUrl()}/xrpc/com.atproto.identity.submitPlcOperation`,
@@ -594,9 +621,13 @@ export class AtprotoClient {
       },
     );
     const start = Date.now();
+    validateSignedPlcOperation(operation);
+    const input: ComAtprotoIdentitySubmitPlcOperation.$input = {
+      operation: { ...operation },
+    };
     await this.unwrapAtcute(
       this.client.post("com.atproto.identity.submitPlcOperation", {
-        input: { operation: operation as unknown as Record<string, unknown> },
+        input,
         as: null,
       }),
     );
@@ -679,7 +710,7 @@ export class AtprotoClient {
   async resolveHandle(handle: string): Promise<{ did: string }> {
     return this.unwrapAtcute(
       this.client.get("com.atproto.identity.resolveHandle", {
-        params: { handle: handle as `${string}.${string}` },
+        params: { handle: asHandle(handle) },
       }),
     );
   }

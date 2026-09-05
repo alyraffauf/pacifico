@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { verifySigWithDidKey } from "@atcute/crypto";
+import {
+  Secp256k1PrivateKeyExportable,
+  verifySigWithDidKey,
+} from "@atcute/crypto";
 import { createServiceJwt, generateKeypair } from "./crypto.ts";
 
 function decodeJson(segment: string): Record<string, unknown> {
@@ -29,11 +32,11 @@ describe("registration crypto", () => {
     const keypair = await generateKeypair();
 
     expect(keypair.privateKey).toHaveLength(32);
-    expect(keypair.publicKey).toHaveLength(33);
     expect(keypair.publicKeyMultibase).toMatch(/^z/);
-    expect(keypair.publicKeyDidKey).toBe(
-      `did:key:${keypair.publicKeyMultibase}`,
-    );
+    expect(Object.keys(keypair).sort()).toEqual([
+      "privateKey",
+      "publicKeyMultibase",
+    ]);
   });
 
   it("creates a verifiable service JWT with the expected claims", async () => {
@@ -46,6 +49,10 @@ describe("registration crypto", () => {
       "com.atproto.server.createAccount",
     );
     const [header, payload, signature] = jwt.split(".");
+    const signingKey = await Secp256k1PrivateKeyExportable.importRaw(
+      keypair.privateKey,
+    );
+    const publicKeyDid = await signingKey.exportPublicKey("did");
 
     expect(decodeJson(header!)).toEqual({ alg: "ES256K", typ: "JWT" });
     expect(decodeJson(payload!)).toMatchObject({
@@ -59,7 +66,7 @@ describe("registration crypto", () => {
     const signingInput = new TextEncoder().encode(`${header}.${payload}`);
     expect(
       await verifySigWithDidKey(
-        keypair.publicKeyDidKey,
+        publicKeyDid,
         decodeBase64Url(signature!),
         signingInput,
       ),

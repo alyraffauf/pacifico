@@ -1,3 +1,6 @@
+import type { AppBskyActorGetPreferences } from "@atcute/bluesky";
+import type { Operation, UnsignedOperation } from "@atcute/did-plc";
+
 export type InboundStep =
   | "welcome"
   | "source-handle"
@@ -200,22 +203,10 @@ export interface DidCredentials {
   };
 }
 
-export interface PlcOperation {
-  type: "plc_operation";
-  prev: string | null;
-  sig: string;
-  rotationKeys: string[];
-  verificationMethods: {
-    atproto: string;
-  };
-  alsoKnownAs: string[];
-  services: {
-    atproto_pds: {
-      type: string;
-      endpoint: string;
-    };
-  };
-}
+export type UnsignedPlcOperation = UnsignedOperation;
+export type SignedPlcOperation = Operation;
+
+export type PlcOperation = SignedPlcOperation;
 
 export interface AccountStatus {
   activated: boolean;
@@ -300,9 +291,7 @@ export interface OAuthTokenResponse {
   scope?: string;
 }
 
-export interface Preferences {
-  preferences: unknown[];
-}
+export type Preferences = AppBskyActorGetPreferences.$output;
 
 export class MigrationError extends Error {
   constructor(

@@ -1,11 +1,28 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import { isSignedOperationValid, type Operation } from "@atcute/did-plc";
 import { Secp256k1PrivateKeyExportable } from "@atcute/crypto";
-import { PlcOps, type PlcOperationData } from "./plc-ops.ts";
+import {
+  PlcOps,
+  type PlcOperationData,
+  type SignedPlcOperationData,
+} from "./plc-ops.ts";
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
+
+function decodeJwtJson(segment: string): Record<string, unknown> {
+  const padded = segment
+    .replace(/-/g, "+")
+    .replace(/_/g, "/")
+    .padEnd(Math.ceil(segment.length / 4) * 4, "=");
+  return JSON.parse(
+    new TextDecoder().decode(
+      Uint8Array.from(atob(padded), (character) => character.charCodeAt(0)),
+    ),
+  );
+}
 
 describe("PlcOps", () => {
   it("signs, validates, and submits an operation to a custom directory", async () => {
@@ -36,7 +53,7 @@ describe("PlcOps", () => {
     });
     const operation = JSON.parse(
       requestInit?.body as string,
-    ) as PlcOperationData & { sig: string };
+    ) as SignedPlcOperationData;
     expect(operation.rotationKeys).toEqual([didKey]);
     await expect(
       isSignedOperationValid([didKey], operation as Operation),
@@ -58,8 +75,32 @@ describe("PlcOps", () => {
     ).rejects.toThrow("Maximum 5 rotation keys allowed");
   });
 
+  it("keeps the PLC service-token claims distinct from registration JWTs", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_800_000_000_000);
+    const key = await Secp256k1PrivateKeyExportable.createKeypair();
+
+    const token = await new PlcOps().createServiceAuthToken(
+      "did:plc:alice",
+      "did:web:pds.example",
+      key,
+      "com.atproto.server.createAccount",
+    );
+    const [header, payload] = token.split(".");
+
+    expect(decodeJwtJson(header!)).toEqual({ alg: "ES256K", typ: "JWT" });
+    expect(decodeJwtJson(payload!)).toMatchObject({
+      iss: "did:plc:alice",
+      aud: "did:web:pds.example",
+      iat: 1_800_000_000,
+      exp: 1_800_000_060,
+      lxm: "com.atproto.server.createAccount",
+      jti: expect.stringMatching(/^[0-9a-f]{32}$/),
+    });
+    expect(decodeJwtJson(payload!)).not.toHaveProperty("sub");
+  });
+
   it("preserves directory error messages and status fallbacks", async () => {
-    const operation: PlcOperationData = {
+    const operation: SignedPlcOperationData = {
       type: "plc_operation",
       prev: "previous-cid",
       alsoKnownAs: [],
@@ -86,5 +127,27 @@ describe("PlcOps", () => {
     await expect(
       new PlcOps().pushPlcOperation("did:plc:alice", operation),
     ).rejects.toThrow("PLC directory returned HTTP 502");
+  });
+
+  it("accepts only signed operations for submission", async () => {
+    expectTypeOf<
+      Parameters<PlcOps["pushPlcOperation"]>[1]
+    >().toEqualTypeOf<SignedPlcOperationData>();
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+    const unsignedOperation: PlcOperationData = {
+      type: "plc_operation",
+      prev: "previous-cid",
+      alsoKnownAs: [],
+      rotationKeys: ["did:key:zRotation"],
+      verificationMethods: { atproto: "did:key:zVerification" },
+      services: {},
+    };
+
+    await expect(
+      // @ts-expect-error PLC submission requires a signed operation.
+      new PlcOps().pushPlcOperation("did:plc:alice", unsignedOperation),
+    ).rejects.toThrow("A signed PLC operation is required");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

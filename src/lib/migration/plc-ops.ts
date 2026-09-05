@@ -10,20 +10,17 @@ import {
 } from "@atcute/did-plc";
 import type { DidKeyString, DidPlcString } from "@atcute/did-plc";
 import {
+  type PrivateKey,
   P256PrivateKey,
   parsePrivateMultikey,
   parsePublicMultikey,
   Secp256k1PrivateKey,
   Secp256k1PrivateKeyExportable,
 } from "@atcute/crypto";
-import {
-  fromBase16,
-  fromBase58Btc,
-  fromBase64Url,
-  toBase64Url,
-} from "@atcute/multibase";
+import { fromBase16, fromBase58Btc, fromBase64Url } from "@atcute/multibase";
+import { signJwt } from "../jwt.ts";
 
-export type PrivateKey = P256PrivateKey | Secp256k1PrivateKey;
+export type { PrivateKey } from "@atcute/crypto";
 
 export interface KeypairInfo {
   type: "private_key";
@@ -36,34 +33,31 @@ export interface PlcService {
   endpoint: string;
 }
 
-export interface PlcOperationData {
-  type: "plc_operation";
-  prev: string | null;
-  alsoKnownAs: string[];
-  rotationKeys: string[];
-  services: Record<string, PlcService>;
-  verificationMethods: Record<string, string>;
-  sig?: string;
-}
+export type PlcOperationData = UnsignedOperation;
+export type SignedPlcOperationData = Operation;
 
 type KeyCurve = "secp256k1" | "p256";
 
 const HEX_PRIVATE_KEY_REGEX = /^[0-9a-f]{64}$/i;
 const BASE58BTC_CHARSET_REGEX = /^[a-km-zA-HJ-NP-Z1-9]+$/;
 
-const asUnsignedOperation = (
-  operation: PlcOperationData,
-): UnsignedOperation => ({
-  type: operation.type,
-  prev: operation.prev,
-  alsoKnownAs: operation.alsoKnownAs,
-  rotationKeys: operation.rotationKeys as DidKeyString[],
-  services: operation.services,
-  verificationMethods: operation.verificationMethods as Record<
-    string,
-    DidKeyString
-  >,
-});
+const asDidPlc = (did: string): DidPlcString => did as DidPlcString;
+const asDidKey = (key: string): DidKeyString => key as DidKeyString;
+const asDidKeys = (keys: readonly string[]): DidKeyString[] =>
+  keys.map(asDidKey);
+const asVerificationMethods = (
+  methods: Record<string, string>,
+): Record<string, DidKeyString> =>
+  Object.fromEntries(
+    Object.entries(methods).map(([id, key]) => [id, asDidKey(key)]),
+  );
+
+const validateSignedOperation = (operation: SignedPlcOperationData): void => {
+  if (typeof operation.sig !== "string" || operation.sig.length === 0) {
+    throw new Error("A signed PLC operation is required");
+  }
+  validateIncomingOp(operation);
+};
 
 const importRawBytes = (
   bytes: Uint8Array,
@@ -191,14 +185,8 @@ const detectAndImportPrivateKey = (
   );
 };
 
-const jsonToB64Url = (obj: unknown): string => {
-  const enc = new TextEncoder();
-  const json = JSON.stringify(obj);
-  return toBase64Url(enc.encode(json));
-};
-
 export class PlcOps {
-  private client: PlcClient;
+  private readonly client: PlcClient;
 
   constructor(plcDirectoryUrl = "https://plc.directory") {
     this.client = new PlcClient({ serviceUrl: plcDirectoryUrl });
@@ -206,7 +194,7 @@ export class PlcOps {
 
   async getPlcAuditLogs(did: string): Promise<IndexedEntry[]> {
     try {
-      return await this.client.getAuditLog(did as DidPlcString);
+      return await this.client.getAuditLog(asDidPlc(did));
     } catch (caught) {
       if (caught instanceof PlcClientError) {
         throw new Error(`Failed to fetch PLC audit logs: ${caught.status}`, {
@@ -319,7 +307,7 @@ export class PlcOps {
       type: "plc_operation",
       prev,
       alsoKnownAs,
-      rotationKeys: rotationKeysToUse,
+      rotationKeys: asDidKeys(rotationKeysToUse),
       services: {
         atproto_pds: {
           type: "AtprotoPersonalDataServer",
@@ -327,29 +315,22 @@ export class PlcOps {
         },
       },
       verificationMethods: {
-        atproto: verificationKey,
+        atproto: asDidKey(verificationKey),
       },
     };
 
-    const signedOperation = await signOperation(
-      asUnsignedOperation(operation),
-      signingRotationKey,
-    );
-    validateIncomingOp(signedOperation);
+    const signedOperation = await signOperation(operation, signingRotationKey);
 
     await this.pushPlcOperation(did, signedOperation);
   }
 
   async pushPlcOperation(
     did: string,
-    operation: PlcOperationData,
+    operation: SignedPlcOperationData,
   ): Promise<void> {
     try {
-      validateIncomingOp(operation as Operation);
-      await this.client.submitOperation(
-        did as DidPlcString,
-        operation as Operation,
-      );
+      validateSignedOperation(operation);
+      await this.client.submitOperation(asDidPlc(did), operation);
     } catch (caught) {
       if (caught instanceof PlcClientError) {
         if (caught.body?.message) {
@@ -383,15 +364,7 @@ export class PlcOps {
     const header = { typ: "JWT", alg: "ES256K" };
     const payload = { iat, iss, aud, exp, lxm, jti };
 
-    const headerB64 = jsonToB64Url(header);
-    const payloadB64 = jsonToB64Url(payload);
-    const toSignStr = `${headerB64}.${payloadB64}`;
-
-    const toSignBytes = new TextEncoder().encode(toSignStr);
-    const sigBytes = await keypair.sign(toSignBytes);
-    const sigB64 = toBase64Url(sigBytes);
-
-    return `${toSignStr}.${sigB64}`;
+    return signJwt(keypair, header, payload);
   }
 
   async signPlcOperationWithCredentials(
@@ -424,16 +397,14 @@ export class PlcOps {
       type: "plc_operation",
       prev: prevCid,
       alsoKnownAs: credentials.alsoKnownAs || [],
-      rotationKeys,
+      rotationKeys: asDidKeys(rotationKeys),
       services: credentials.services || {},
-      verificationMethods: credentials.verificationMethods || {},
+      verificationMethods: asVerificationMethods(
+        credentials.verificationMethods || {},
+      ),
     };
 
-    const signedOperation = await signOperation(
-      asUnsignedOperation(operation),
-      signingKey,
-    );
-    validateIncomingOp(signedOperation);
+    const signedOperation = await signOperation(operation, signingKey);
 
     await this.pushPlcOperation(did, signedOperation);
   }

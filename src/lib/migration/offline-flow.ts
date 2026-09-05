@@ -172,7 +172,7 @@ export function createOfflineInboundMigrationFlow() {
 
   let localServerInfo: ServerDescription | null = null;
   let userRotationKeypair: KeypairInfo | null = null;
-  let tempVerificationKeypair: Secp256k1PrivateKeyExportable | null = null;
+  let tempVerificationKeypair: PrivateKey | null = null;
 
   function setStep(step: OfflineInboundStep) {
     state.step = step;
@@ -277,7 +277,7 @@ export function createOfflineInboundMigrationFlow() {
     const serviceAuthToken = await plcOps.createServiceAuthToken(
       state.userDid,
       serverInfo.did,
-      tempVerificationKeypair as unknown as PrivateKey,
+      tempVerificationKeypair,
       "com.atproto.server.createAccount",
     );
 
