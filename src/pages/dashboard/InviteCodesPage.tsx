@@ -3,7 +3,7 @@ import { IconCheck, IconCopy } from "@tabler/icons-react";
 import {
   Alert,
   Button,
-  PageHeading,
+  DashboardPage,
   SettingsDialog,
   SettingsItem,
   SettingsSection,
@@ -154,52 +154,54 @@ export function InviteCodesPage({
     }
   }
 
-  const heading = (
-    <PageHeading
-      title={t("dashboard.navInviteCodes")}
-      description={t("inviteCodes.description")}
-      actions={
-        session.isAdmin ? (
-          <Button
-            aria-haspopup="dialog"
-            disabled={creating}
-            onClick={() => void createCode()}
-          >
-            {creating ? t("common.creating") : t("inviteCodes.createNew")}
-          </Button>
-        ) : undefined
-      }
-    />
-  );
+  const pageActions = session.isAdmin ? (
+    <Button
+      aria-haspopup="dialog"
+      disabled={creating}
+      onClick={() => void createCode()}
+    >
+      {creating ? t("common.creating") : t("inviteCodes.createNew")}
+    </Button>
+  ) : undefined;
 
   if (resource.loading && !resource.data) {
     return (
-      <div className="mx-auto grid w-full max-w-[52rem] gap-6" aria-busy="true">
-        {heading}
+      <DashboardPage
+        title={t("dashboard.navInviteCodes")}
+        description={t("inviteCodes.description")}
+        actions={pageActions}
+        busy
+      >
         <SettingsSection title={t("dashboard.navInviteCodes")} titleHidden>
           <SettingsItem title={t("common.loading")} />
           <SettingsItem title={t("common.loading")} />
         </SettingsSection>
-      </div>
+      </DashboardPage>
     );
   }
 
   if (!resource.data) {
     return (
-      <div className="mx-auto grid w-full max-w-[52rem] gap-6">
-        {heading}
+      <DashboardPage
+        title={t("dashboard.navInviteCodes")}
+        description={t("inviteCodes.description")}
+        actions={pageActions}
+      >
         <Alert tone="error">
           {resource.error ?? t("inviteCodes.loadFailed")}
         </Alert>
-      </div>
+      </DashboardPage>
     );
   }
 
   const dialogOpen = Boolean(createdCode || pendingDisable);
 
   return (
-    <div className="mx-auto grid w-full max-w-[52rem] gap-6">
-      {heading}
+    <DashboardPage
+      title={t("dashboard.navInviteCodes")}
+      description={t("inviteCodes.description")}
+      actions={pageActions}
+    >
       {resource.error ? <Alert tone="error">{resource.error}</Alert> : null}
       {error && !dialogOpen ? <Alert tone="error">{error}</Alert> : null}
       {notice ? <Alert tone="success">{notice}</Alert> : null}
@@ -364,6 +366,6 @@ export function InviteCodesPage({
           </Button>
         </div>
       </SettingsDialog>
-    </div>
+    </DashboardPage>
   );
 }

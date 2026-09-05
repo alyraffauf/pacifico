@@ -150,6 +150,8 @@
   },
   "about": {
     "title": "关于",
+    "description": "此服务器、账户和浏览器的技术信息。",
+    "loadFailed": "无法加载部分服务器信息。",
     "copyDebugInfo": "复制调试信息",
     "copied": "调试信息已复制到剪贴板",
     "copyFailed": "复制调试信息失败",
@@ -374,6 +376,7 @@
     "createFailed": "创建邀请码失败"
   },
   "security": {
+    "description": "管理登录方式、双重身份验证和受信任的访问。",
     "passkeys": "通行密钥",
     "addPasskey": "添加通行密钥",
     "adding": "添加中...",

@@ -12,9 +12,9 @@ import {
 import {
   Alert,
   Button,
+  DashboardPage,
   Field,
   Input,
-  PageHeading,
   Select,
   SettingsDialog,
   SettingsItem,
@@ -364,40 +364,40 @@ export function CommunicationPage({
         (channel) => usernames[channel] !== savedUsernames[channel],
       )
     : false;
-  const heading = (
-    <PageHeading
-      title={t("dashboard.navComms")}
-      description={t("comms.description")}
-    />
-  );
-
   if (communicationLoading && !loaded) {
     return (
-      <div className="mx-auto grid w-full max-w-[52rem] gap-6" aria-busy="true">
-        {heading}
+      <DashboardPage
+        title={t("dashboard.navComms")}
+        description={t("comms.description")}
+        busy
+      >
         <SettingsSection title={t("comms.channelConfiguration")}>
           <SettingsRow label={t("comms.preferredChannel")} />
           <SettingsRow label={t("register.email")} />
           <SettingsRow label={t("register.discord")} />
         </SettingsSection>
-      </div>
+      </DashboardPage>
     );
   }
 
   if (!loaded) {
     return (
-      <div className="mx-auto grid w-full max-w-[52rem] gap-6">
-        {heading}
+      <DashboardPage
+        title={t("dashboard.navComms")}
+        description={t("comms.description")}
+      >
         <Alert tone="error">
           {communicationError ?? t("comms.failedToLoad")}
         </Alert>
-      </div>
+      </DashboardPage>
     );
   }
 
   return (
-    <div className="mx-auto grid w-full max-w-[52rem] gap-6">
-      {heading}
+    <DashboardPage
+      title={t("dashboard.navComms")}
+      description={t("comms.description")}
+    >
       {message && !(activeVerification && message.tone === "error") ? (
         <Alert tone={message.tone}>{message.text}</Alert>
       ) : null}
@@ -627,6 +627,6 @@ export function CommunicationPage({
           )
         ) : null}
       </SettingsDialog>
-    </div>
+    </DashboardPage>
   );
 }

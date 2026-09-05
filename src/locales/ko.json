@@ -150,6 +150,8 @@
   },
   "about": {
     "title": "정보",
+    "description": "이 서버, 계정 및 브라우저의 기술 정보입니다.",
+    "loadFailed": "일부 서버 정보를 불러오지 못했습니다.",
     "copyDebugInfo": "디버그 정보 복사",
     "copied": "디버그 정보가 클립보드에 복사되었습니다",
     "copyFailed": "디버그 정보 복사에 실패했습니다",
@@ -374,6 +376,7 @@
     "createFailed": "초대 코드 생성 실패"
   },
   "security": {
+    "description": "로그인 방법, 2단계 인증 및 신뢰할 수 있는 액세스를 관리합니다.",
     "passkeys": "패스키",
     "addPasskey": "패스키 추가",
     "adding": "추가 중...",

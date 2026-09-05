@@ -1,11 +1,18 @@
-import { version as reactVersion, useCallback, useState } from "react";
+import {
+  version as reactVersion,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import vitePackage from "vite/package.json";
 import {
   Alert,
   Button,
-  Card,
-  Loading,
-  PageHeading,
+  DashboardPage,
+  SettingsItem,
+  SettingsRow,
+  SettingsSection,
 } from "../../components/ui.tsx";
 import { useAsync } from "../../hooks/useAsync.ts";
 import { useSession } from "../../hooks/useSession.ts";
@@ -16,32 +23,24 @@ type AboutRow = { label: string; value: string; href?: string };
 
 function AboutSection({ title, rows }: { title: string; rows: AboutRow[] }) {
   return (
-    <section className="grid gap-3">
-      <h2 className="font-mono text-sm font-semibold text-ctp-lavender">
-        {title}
-      </h2>
-      <Card className="overflow-hidden">
-        <dl className="divide-y divide-ctp-surface0 text-sm">
-          {rows.map((row) => (
-            <div
-              key={row.label}
-              className="grid gap-1 px-5 py-4 sm:grid-cols-[11rem_1fr]"
-            >
-              <dt className="font-semibold text-ctp-subtext0">{row.label}</dt>
-              <dd className="font-mono break-all text-ctp-text">
-                {row.href ? (
-                  <a href={row.href} target="_blank" rel="noopener noreferrer">
-                    {row.value}
-                  </a>
-                ) : (
-                  row.value
-                )}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </Card>
-    </section>
+    <SettingsSection title={title}>
+      {rows.map((row) => (
+        <SettingsRow
+          key={row.label}
+          label={row.label}
+          technical
+          value={
+            row.href ? (
+              <a href={row.href} target="_blank" rel="noopener noreferrer">
+                {row.value}
+              </a>
+            ) : (
+              row.value
+            )
+          }
+        />
+      ))}
+    </SettingsSection>
   );
 }
 
@@ -60,17 +59,37 @@ export function AboutPage() {
   const resource = useAsync(loadAbout);
   const [copyError, setCopyError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const copyFeedbackTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  if (resource.loading) return <Loading label={t("common.loading")} />;
+  useEffect(() => () => clearTimeout(copyFeedbackTimeout.current), []);
+
+  if (resource.loading && !resource.data) {
+    return (
+      <DashboardPage
+        title={t("about.title")}
+        description={t("about.description")}
+        busy
+      >
+        <SettingsSection title={t("about.serverSection")}>
+          <SettingsItem title={t("common.loading")} />
+          <SettingsItem title={t("common.loading")} />
+        </SettingsSection>
+      </DashboardPage>
+    );
+  }
 
   const server = resource.data?.server;
   const stats = resource.data?.stats;
   const unknown = t("about.unknown");
   const notConfigured = t("about.notConfigured");
   const yesNo = (value: boolean | undefined) =>
-    value ? t("about.yes") : t("about.no");
+    value === undefined ? unknown : value ? t("about.yes") : t("about.no");
   const enabledDisabled = (value: boolean | undefined) =>
-    value ? t("about.enabled") : t("about.disabled");
+    value === undefined
+      ? unknown
+      : value
+        ? t("about.enabled")
+        : t("about.disabled");
   const screenSize = `${globalThis.innerWidth ?? 0}x${globalThis.innerHeight ?? 0}`;
 
   const sections = [
@@ -82,7 +101,9 @@ export function AboutPage() {
         { label: t("about.serverDid"), value: server?.did ?? unknown },
         {
           label: t("about.availableDomains"),
-          value: server?.availableUserDomains.join(", ") ?? unknown,
+          value: server?.availableUserDomains.length
+            ? server.availableUserDomains.join(", ")
+            : unknown,
         },
         {
           label: t("about.inviteCodeRequired"),
@@ -128,7 +149,9 @@ export function AboutPage() {
             rows: [
               {
                 label: t("about.availableChannels"),
-                value: server?.availableCommsChannels?.join(", ") ?? unknown,
+                value: server?.availableCommsChannels?.length
+                  ? server.availableCommsChannels.join(", ")
+                  : unknown,
               },
               {
                 label: t("about.discordBot"),
@@ -183,26 +206,26 @@ export function AboutPage() {
       await navigator.clipboard.writeText(lines.join("\n"));
       setCopied(true);
       setCopyError(null);
+      clearTimeout(copyFeedbackTimeout.current);
+      copyFeedbackTimeout.current = setTimeout(() => setCopied(false), 2000);
     } catch {
+      setCopied(false);
       setCopyError(t("about.copyFailed"));
     }
   }
 
   return (
-    <div className="grid gap-6">
-      <PageHeading
-        title={t("about.title")}
-        description={t("about.serverSection")}
-        actions={
-          <Button onClick={() => void copyDebugInfo()}>
-            {copied ? t("about.copied") : t("about.copyDebugInfo")}
-          </Button>
-        }
-      />
+    <DashboardPage
+      title={t("about.title")}
+      description={t("about.description")}
+      actions={
+        <Button onClick={() => void copyDebugInfo()}>
+          {copied ? t("common.copied") : t("about.copyDebugInfo")}
+        </Button>
+      }
+    >
       {copyError ? <Alert tone="error">{copyError}</Alert> : null}
-      {!server ? (
-        <Alert tone="warning">{t("admin.failedToLoadConfig")}</Alert>
-      ) : null}
+      {!server ? <Alert tone="warning">{t("about.loadFailed")}</Alert> : null}
       {sections.map((section) => (
         <AboutSection
           key={section.title}
@@ -210,6 +233,9 @@ export function AboutPage() {
           rows={section.rows}
         />
       ))}
-    </div>
+      <span className="sr-only" aria-live="polite">
+        {copied ? t("about.copied") : ""}
+      </span>
+    </DashboardPage>
   );
 }

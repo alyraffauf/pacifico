@@ -167,7 +167,7 @@ export function SettingsSection({
         className={joinClasses(
           titleHidden
             ? "sr-only"
-            : "mb-2 flex flex-col items-start gap-2 px-1 min-[360px]:flex-row min-[360px]:items-end min-[360px]:justify-between min-[360px]:gap-3",
+            : "mb-2 flex flex-col items-start gap-2 px-1 sm:flex-row sm:items-end sm:justify-between sm:gap-3",
         )}
       >
         <div className="min-w-0">
@@ -192,6 +192,20 @@ export function SettingsSection({
         {children}
       </div>
     </section>
+  );
+}
+
+export function SettingsContent({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={joinClasses("min-w-0 px-4 py-4 sm:px-5", className)}>
+      {children}
+    </div>
   );
 }
 
@@ -292,7 +306,7 @@ export function SettingsItem({
   technical?: boolean;
 }) {
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-x-3 gap-y-1 px-4 py-3.5 min-[360px]:grid-cols-[minmax(0,1fr)_auto] sm:px-5">
+    <div className="grid min-w-0 grid-cols-1 gap-x-3 gap-y-1 px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:px-5">
       <div className="min-w-0 self-center">
         <div
           className={joinClasses(
@@ -309,12 +323,10 @@ export function SettingsItem({
         ) : null}
       </div>
       {action ? (
-        <div className="mt-2 shrink-0 self-center min-[360px]:mt-0">
-          {action}
-        </div>
+        <div className="mt-2 shrink-0 self-center sm:mt-0">{action}</div>
       ) : null}
       {children ? (
-        <div className="col-span-1 mt-3 min-w-0 rounded border border-ctp-surface0 bg-ctp-crust/30 p-4 min-[360px]:col-span-2">
+        <div className="col-span-1 mt-3 min-w-0 rounded border border-ctp-surface0 bg-ctp-crust/30 p-4 sm:col-span-2">
           {children}
         </div>
       ) : null}
@@ -651,6 +663,30 @@ export function PageHeading({
       </div>
       {actions ? <div className="flex shrink-0 gap-2">{actions}</div> : null}
     </header>
+  );
+}
+
+export function DashboardPage({
+  title,
+  description,
+  actions,
+  busy,
+  children,
+}: {
+  title: string;
+  description?: string;
+  actions?: ReactNode;
+  busy?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="mx-auto grid w-full max-w-[52rem] gap-6"
+      aria-busy={busy || undefined}
+    >
+      <PageHeading title={title} description={description} actions={actions} />
+      {children}
+    </div>
   );
 }
 

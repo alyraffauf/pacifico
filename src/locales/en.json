@@ -150,6 +150,8 @@
   },
   "about": {
     "title": "About",
+    "description": "Technical details about this server, account, and browser.",
+    "loadFailed": "Some server details could not be loaded.",
     "copyDebugInfo": "Copy Debug Info",
     "copied": "Debug info copied to clipboard",
     "copyFailed": "Failed to copy debug info",
@@ -374,6 +376,7 @@
     "createdOn": "Created {date}"
   },
   "security": {
+    "description": "Manage sign-in methods, two-factor authentication, and trusted access.",
     "passkeys": "Passkeys",
     "addPasskey": "Add Passkey",
     "adding": "Adding...",

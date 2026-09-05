@@ -5,9 +5,9 @@ import {
   Button,
   buttonClasses,
   Card,
+  DashboardPage,
   Field,
   Input,
-  PageHeading,
   Select,
   SettingsDialog,
   SettingsItem,
@@ -266,70 +266,72 @@ export function DelegationPage({ apiClient = api }: DelegationPageProps = {}) {
     }
   }
 
-  const heading = (
-    <PageHeading
-      title={t("dashboard.navDelegation")}
-      description={t("delegation.description")}
-      actions={
-        resource.data ? (
-          <>
-            {!controlsAccounts ? (
-              <Button
-                type="button"
-                variant={hasControllers ? "primary" : "secondary"}
-                aria-haspopup="dialog"
-                aria-expanded={openDialog === "add-controller"}
-                onClick={openAddControllerDialog}
-              >
-                {t("delegation.addController")}
-              </Button>
-            ) : null}
-            {!hasControllers ? (
-              <Button
-                type="button"
-                aria-haspopup="dialog"
-                aria-expanded={openDialog === "create-account"}
-                onClick={openCreateAccountDialog}
-              >
-                {t("delegation.createAccount")}
-              </Button>
-            ) : null}
-          </>
-        ) : undefined
-      }
-    />
-  );
+  const pageActions = resource.data ? (
+    <>
+      {!controlsAccounts ? (
+        <Button
+          type="button"
+          variant={hasControllers ? "primary" : "secondary"}
+          aria-haspopup="dialog"
+          aria-expanded={openDialog === "add-controller"}
+          onClick={openAddControllerDialog}
+        >
+          {t("delegation.addController")}
+        </Button>
+      ) : null}
+      {!hasControllers ? (
+        <Button
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={openDialog === "create-account"}
+          onClick={openCreateAccountDialog}
+        >
+          {t("delegation.createAccount")}
+        </Button>
+      ) : null}
+    </>
+  ) : undefined;
 
   if (resource.loading && !resource.data) {
     return (
-      <div className="mx-auto grid w-full max-w-[52rem] gap-6" aria-busy="true">
-        {heading}
+      <DashboardPage
+        title={t("dashboard.navDelegation")}
+        description={t("delegation.description")}
+        actions={pageActions}
+        busy
+      >
         <SettingsSection title={t("delegation.accessToAccount")}>
           <SettingsItem title={t("common.loading")} />
         </SettingsSection>
         <SettingsSection title={t("delegation.accountsYouManage")}>
           <SettingsItem title={t("common.loading")} />
         </SettingsSection>
-      </div>
+      </DashboardPage>
     );
   }
 
   if (!resource.data) {
     return (
-      <div className="mx-auto grid w-full max-w-[52rem] gap-6">
-        {heading}
+      <DashboardPage
+        title={t("dashboard.navDelegation")}
+        description={t("delegation.description")}
+        actions={pageActions}
+      >
         <Alert tone="error">
           {resource.error ?? t("delegation.loadFailed")}
         </Alert>
-      </div>
+      </DashboardPage>
     );
   }
 
   const { controllers, accounts, presets, audit } = resource.data;
 
   return (
-    <div className="mx-auto grid w-full max-w-[52rem] gap-6">
-      {heading}
+    <DashboardPage
+      title={t("dashboard.navDelegation")}
+      description={t("delegation.description")}
+      actions={pageActions}
+    >
       {resource.error ? <Alert tone="error">{resource.error}</Alert> : null}
       {notice ? <Alert tone={notice.tone}>{notice.text}</Alert> : null}
 
@@ -697,6 +699,6 @@ export function DelegationPage({ apiClient = api }: DelegationPageProps = {}) {
           </Button>
         </div>
       </SettingsDialog>
-    </div>
+    </DashboardPage>
   );
 }

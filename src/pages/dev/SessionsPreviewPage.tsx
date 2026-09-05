@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
 import {
   unsafeAsAccessToken,
   unsafeAsDid,
@@ -13,6 +12,7 @@ import {
   SessionsPage,
   type SessionsPageApi,
 } from "../dashboard/SessionsPage.tsx";
+import { DashboardPreview } from "./DashboardPreview.tsx";
 
 const previewSession: Session = {
   did: unsafeAsDid("did:plc:previewaccount"),
@@ -83,29 +83,12 @@ export function SessionsPreviewPage() {
   const apiClient = useMemo(() => createPreviewApi(), []);
 
   return (
-    <MemoryRouter>
-      <Routes>
-        <Route element={<Outlet context={previewSession} />}>
-          <Route
-            index
-            element={
-              <main className="min-h-screen bg-ctp-base px-4 py-8 text-ctp-text sm:px-6">
-                <div className="mx-auto grid max-w-[52rem] gap-6">
-                  <div className="rounded border border-ctp-blue/40 bg-ctp-blue/10 px-4 py-3 font-mono text-xs text-ctp-blue">
-                    Development preview at /app/dev/sessions. Changes stay in
-                    this tab.
-                  </div>
-                  <SessionsPage
-                    apiClient={apiClient}
-                    signOut={async () => undefined}
-                    onCurrentSessionRevoked={() => undefined}
-                  />
-                </div>
-              </main>
-            }
-          />
-        </Route>
-      </Routes>
-    </MemoryRouter>
+    <DashboardPreview path="/app/dev/sessions" session={previewSession}>
+      <SessionsPage
+        apiClient={apiClient}
+        signOut={async () => undefined}
+        onCurrentSessionRevoked={() => undefined}
+      />
+    </DashboardPreview>
   );
 }

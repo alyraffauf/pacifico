@@ -150,6 +150,8 @@
   },
   "about": {
     "title": "Tietoja",
+    "description": "Tekniset tiedot tästä palvelimesta, tilistä ja selaimesta.",
+    "loadFailed": "Joitakin palvelimen tietoja ei voitu ladata.",
     "copyDebugInfo": "Kopioi virheenkorjaustiedot",
     "copied": "Virheenkorjaustiedot kopioitu leikepöydälle",
     "copyFailed": "Virheenkorjaustietojen kopiointi epäonnistui",
@@ -374,6 +376,7 @@
     "createFailed": "Kutsukoodin luonti epäonnistui"
   },
   "security": {
+    "description": "Hallitse kirjautumistapoja, kaksivaiheista tunnistautumista ja luotettuja laitteita.",
     "passkeys": "Pääsyavaimet",
     "addPasskey": "Lisää pääsyavain",
     "adding": "Lisätään...",

@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { ReauthDialog } from "../../components/ReauthDialog.tsx";
 import {
   Alert,
-  PageHeading,
+  DashboardPage,
   SettingsRow,
   SettingsSection,
 } from "../../components/ui.tsx";
@@ -10,6 +10,7 @@ import { useAsync } from "../../hooks/useAsync.ts";
 import { useSession } from "../../hooks/useSession.ts";
 import { api, ApiError } from "../../lib/api.ts";
 import { createPasskeyCredential } from "../../lib/flows/perform-passkey-registration.ts";
+import { useTranslation } from "../../lib/i18n.ts";
 import type { SsoLinkedAccount, TrustedDevice } from "../../lib/types/api.ts";
 import {
   SecuritySections,
@@ -91,6 +92,7 @@ export function SecurityPage({
   navigateTo = navigateToUrl,
 }: SecurityPageProps = {}) {
   const session = useSession();
+  const t = useTranslation();
   const loadSecurity = useCallback(async () => {
     const [
       password,
@@ -429,33 +431,27 @@ export function SecurityPage({
     }, `${account.provider_name} unlinked.`);
   }
 
-  const heading = (
-    <PageHeading
-      title="Security"
-      description="Manage sign-in methods, two-factor authentication, and trusted access."
-    />
-  );
+  const pageTitle = t("dashboard.navSecurity");
+  const pageDescription = t("security.description");
 
   if (security.loading && !security.data) {
     return (
-      <div className="mx-auto grid w-full max-w-[52rem] gap-6" aria-busy="true">
-        {heading}
+      <DashboardPage title={pageTitle} description={pageDescription} busy>
         <SettingsSection title="Sign-in methods">
           <SettingsRow label="Password" value="Loading..." />
           <SettingsRow label="Authenticator app" value="Loading..." />
         </SettingsSection>
-      </div>
+      </DashboardPage>
     );
   }
 
   if (!security.data) {
     return (
-      <div className="mx-auto grid w-full max-w-[52rem] gap-6">
-        {heading}
+      <DashboardPage title={pageTitle} description={pageDescription}>
         <Alert tone="error">
           {security.error ?? "Security settings could not be loaded."}
         </Alert>
-      </div>
+      </DashboardPage>
     );
   }
 
@@ -478,8 +474,7 @@ export function SecurityPage({
   );
 
   return (
-    <div className="mx-auto grid w-full max-w-[52rem] gap-6">
-      {heading}
+    <DashboardPage title={pageTitle} description={pageDescription}>
       {message && !dialogOpen ? (
         <Alert tone={message.tone}>{message.text}</Alert>
       ) : null}
@@ -597,6 +592,6 @@ export function SecurityPage({
           }}
         />
       ) : null}
-    </div>
+    </DashboardPage>
   );
 }

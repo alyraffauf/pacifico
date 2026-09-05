@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Alert, PageHeading } from "../../components/ui.tsx";
+import { Alert, DashboardPage } from "../../components/ui.tsx";
 import { useAsync } from "../../hooks/useAsync.ts";
 import { useSession } from "../../hooks/useSession.ts";
 import { logout, refreshSession } from "../../lib/auth.ts";
@@ -344,11 +344,10 @@ export function SettingsPage() {
   );
 
   return (
-    <div className="mx-auto grid max-w-[52rem] gap-6">
-      <PageHeading
-        title={t("dashboard.navSettings")}
-        description={t("settings.subtitle")}
-      />
+    <DashboardPage
+      title={t("dashboard.navSettings")}
+      description={t("settings.subtitle")}
+    >
       {notice ? <Alert tone={notice.tone}>{notice.text}</Alert> : null}
       {preferences.error ? (
         <Alert tone="error">{preferences.error}</Alert>
@@ -394,6 +393,6 @@ export function SettingsPage() {
         requestDelete={requestDelete}
         deleteAccount={deleteAccount}
       />
-    </div>
+    </DashboardPage>
   );
 }

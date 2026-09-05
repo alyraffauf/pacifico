@@ -150,6 +150,8 @@
   },
   "about": {
     "title": "À propos",
+    "description": "Informations techniques sur ce serveur, ce compte et ce navigateur.",
+    "loadFailed": "Certaines informations sur le serveur n’ont pas pu être chargées.",
     "copyDebugInfo": "Copier les informations de débogage",
     "copied": "Informations de débogage copiées dans le presse-papiers",
     "copyFailed": "Échec de la copie des informations de débogage",
@@ -374,6 +376,7 @@
     "createdOn": "Créé le {date}"
   },
   "security": {
+    "description": "Gérez les méthodes de connexion, l’authentification à deux facteurs et les accès de confiance.",
     "passkeys": "Clés d'accès",
     "addPasskey": "Ajouter une clé d'accès",
     "adding": "Ajout...",

@@ -54,3 +54,24 @@
     background: var(--color-ctp-lavender);
   }
 }
+
+.dashboard-navigation {
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+}
+
+.dashboard-navigation::-webkit-scrollbar {
+  display: none;
+}
+
+@media (width < 64rem) {
+  .dashboard-navigation {
+    padding-inline-end: 2.5rem;
+    mask-image: linear-gradient(
+      to right,
+      black 0,
+      black calc(100% - 2rem),
+      transparent 100%
+    );
+  }
+}

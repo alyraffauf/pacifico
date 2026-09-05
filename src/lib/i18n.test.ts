@@ -36,6 +36,34 @@ describe("i18n", () => {
   );
 
   it.each(supportedLocales)(
+    "renders the About description without a key or placeholder in %s",
+    async (locale) => {
+      localStorage.setItem("tranquil-pds-locale", locale);
+      await initializeI18n();
+
+      const description = translate("about.description");
+      const loadFailed = translate("about.loadFailed");
+
+      expect(description).not.toBe("about.description");
+      expect(loadFailed).not.toBe("about.loadFailed");
+      expect(`${description} ${loadFailed}`).not.toMatch(/[{}]/);
+    },
+  );
+
+  it.each(supportedLocales)(
+    "renders the Security description without a key or placeholder in %s",
+    async (locale) => {
+      localStorage.setItem("tranquil-pds-locale", locale);
+      await initializeI18n();
+
+      const description = translate("security.description");
+
+      expect(description).not.toBe("security.description");
+      expect(description).not.toMatch(/[{}]/);
+    },
+  );
+
+  it.each(supportedLocales)(
     "renders App Password copy and dates without raw keys in %s",
     async (locale) => {
       localStorage.setItem("tranquil-pds-locale", locale);

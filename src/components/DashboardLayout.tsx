@@ -16,6 +16,7 @@ import {
 } from "@tabler/icons-react";
 import {
   useEffect,
+  useId,
   useRef,
   useState,
   type ComponentType,
@@ -123,6 +124,7 @@ export function DashboardLayout({
   const auth = useAuthState();
   const navigate = useNavigate();
   const location = useLocation();
+  const accountMenuId = useId();
   const menuRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -136,8 +138,15 @@ export function DashboardLayout({
       if (!menuRef.current?.contains(event.target as Node))
         setAccountMenuOpen(false);
     }
+    function closeMenuWithKeyboard(event: KeyboardEvent) {
+      if (event.key === "Escape") setAccountMenuOpen(false);
+    }
     document.addEventListener("pointerdown", closeMenu);
-    return () => document.removeEventListener("pointerdown", closeMenu);
+    document.addEventListener("keydown", closeMenuWithKeyboard);
+    return () => {
+      document.removeEventListener("pointerdown", closeMenu);
+      document.removeEventListener("keydown", closeMenuWithKeyboard);
+    };
   }, []);
 
   useEffect(() => {
@@ -194,6 +203,7 @@ export function DashboardLayout({
           <button
             type="button"
             aria-expanded={accountMenuOpen}
+            aria-controls={accountMenuId}
             className="flex w-full items-center justify-between gap-3 rounded-md border border-ctp-surface0 bg-ctp-mantle/40 px-3 py-3 text-left hover:border-ctp-surface1 hover:bg-ctp-mantle"
             onClick={() => setAccountMenuOpen((open) => !open)}
           >
@@ -222,7 +232,10 @@ export function DashboardLayout({
             />
           </button>
           {accountMenuOpen ? (
-            <div className="absolute inset-x-3 top-full z-20 mt-1 rounded border border-ctp-surface1 bg-ctp-mantle p-1 shadow-xl">
+            <div
+              id={accountMenuId}
+              className="absolute inset-x-3 top-full z-20 mt-1 rounded border border-ctp-surface1 bg-ctp-mantle p-1 shadow-xl"
+            >
               {savedAccounts.map((account) => (
                 <button
                   key={account.did}
@@ -255,7 +268,7 @@ export function DashboardLayout({
         <nav
           ref={navRef}
           aria-label="Account navigation"
-          className="flex gap-1 overflow-x-auto p-3 lg:grid lg:flex-1 lg:content-start lg:gap-1 lg:overflow-x-hidden lg:overflow-y-auto lg:py-4"
+          className="dashboard-navigation flex gap-1 overflow-x-auto p-3 lg:grid lg:flex-1 lg:content-start lg:gap-1 lg:overflow-x-hidden lg:overflow-y-auto lg:py-4"
         >
           {navigationItems
             .filter((item) => {

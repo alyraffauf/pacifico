@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Button,
-  PageHeading,
+  DashboardPage,
   SettingsDialog,
   SettingsItem,
   SettingsSection,
@@ -151,46 +151,31 @@ export function SessionsPage({
 
   const otherSessionCount =
     resource.data?.sessions.filter((item) => !item.isCurrent).length ?? 0;
-  const heading = (
-    <PageHeading
-      title={t("dashboard.navSessions")}
-      description={t("sessions.description")}
-      actions={
-        resource.data ? (
-          <Button
-            type="button"
-            variant="dangerOutline"
-            disabled={mutating || otherSessionCount === 0}
-            aria-haspopup="dialog"
-            onClick={requestOtherSessionRevocation}
-          >
-            {t("sessions.revokeAll")}
-          </Button>
-        ) : undefined
-      }
-    />
-  );
-
   if (resource.loading && !resource.data) {
     return (
-      <div className="mx-auto grid w-full max-w-[52rem] gap-6" aria-busy="true">
-        {heading}
+      <DashboardPage
+        title={t("dashboard.navSessions")}
+        description={t("sessions.description")}
+        busy
+      >
         <SettingsSection title={t("dashboard.navSessions")} titleHidden>
           <SettingsItem title={t("common.loading")} />
           <SettingsItem title={t("common.loading")} />
         </SettingsSection>
-      </div>
+      </DashboardPage>
     );
   }
 
   if (!resource.data) {
     return (
-      <div className="mx-auto grid w-full max-w-[52rem] gap-6">
-        {heading}
+      <DashboardPage
+        title={t("dashboard.navSessions")}
+        description={t("sessions.description")}
+      >
         <Alert tone="error">
           {resource.error ?? t("sessions.failedToLoad")}
         </Alert>
-      </div>
+      </DashboardPage>
     );
   }
 
@@ -212,8 +197,21 @@ export function SessionsPage({
         : t("sessions.revoke");
 
   return (
-    <div className="mx-auto grid w-full max-w-[52rem] gap-6">
-      {heading}
+    <DashboardPage
+      title={t("dashboard.navSessions")}
+      description={t("sessions.description")}
+      actions={
+        <Button
+          type="button"
+          variant="dangerOutline"
+          disabled={mutating || otherSessionCount === 0}
+          aria-haspopup="dialog"
+          onClick={requestOtherSessionRevocation}
+        >
+          {t("sessions.revokeAll")}
+        </Button>
+      }
+    >
       {resource.error ? <Alert tone="error">{resource.error}</Alert> : null}
       {mutationError && !revocationDialogOpen ? (
         <Alert tone="error">{mutationError}</Alert>
@@ -315,6 +313,6 @@ export function SessionsPage({
           </Button>
         </div>
       </SettingsDialog>
-    </div>
+    </DashboardPage>
   );
 }

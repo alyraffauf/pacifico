@@ -150,6 +150,8 @@
   },
   "about": {
     "title": "Om",
+    "description": "Teknisk information om den här servern, kontot och webbläsaren.",
+    "loadFailed": "Viss serverinformation kunde inte läsas in.",
     "copyDebugInfo": "Kopiera felsökningsinformation",
     "copied": "Felsökningsinformation kopierad till urklipp",
     "copyFailed": "Kunde inte kopiera felsökningsinformation",
@@ -374,6 +376,7 @@
     "createFailed": "Kunde inte skapa inbjudningskod"
   },
   "security": {
+    "description": "Hantera inloggningsmetoder, tvåfaktorsautentisering och betrodd åtkomst.",
     "passkeys": "Nycklar",
     "addPasskey": "Lägg till nyckel",
     "adding": "Lägger till...",

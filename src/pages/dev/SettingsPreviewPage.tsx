@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Alert, PageHeading } from "../../components/ui.tsx";
+import { Alert, DashboardPage } from "../../components/ui.tsx";
 import {
   getInitialLocale,
   setLocale,
@@ -10,6 +10,7 @@ import {
   SettingsSections,
   type SettingsEditor,
 } from "../dashboard/SettingsSections.tsx";
+import { DashboardPreviewFrame } from "./DashboardPreview.tsx";
 
 type PreviewNotice = {
   tone: "success" | "warning";
@@ -110,15 +111,11 @@ export function SettingsPreviewPage() {
   }
 
   return (
-    <main className="min-h-screen bg-ctp-base px-4 py-8 text-ctp-text sm:px-6">
-      <div className="mx-auto grid max-w-[52rem] gap-6">
-        <div className="rounded border border-ctp-blue/40 bg-ctp-blue/10 px-4 py-3 font-mono text-xs text-ctp-blue">
-          Development preview at /app/dev/settings. Changes stay in this tab.
-        </div>
-        <PageHeading
-          title={t("dashboard.navSettings")}
-          description={t("settings.subtitle")}
-        />
+    <DashboardPreviewFrame path="/app/dev/settings">
+      <DashboardPage
+        title={t("dashboard.navSettings")}
+        description={t("settings.subtitle")}
+      >
         {notice ? <Alert tone={notice.tone}>{notice.text}</Alert> : null}
         <SettingsSections
           t={t}
@@ -163,7 +160,7 @@ export function SettingsPreviewPage() {
           requestDelete={requestDelete}
           deleteAccount={deleteAccount}
         />
-      </div>
-    </main>
+      </DashboardPage>
+    </DashboardPreviewFrame>
   );
 }

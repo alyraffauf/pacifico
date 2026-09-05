@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { PageContainer } from "./PageContainer.tsx";
 import { getSiteHostname } from "../lib/site.ts";
+import { SiteMark } from "./SiteMark.tsx";
 
 export function SiteLayout({ children }: { children: ReactNode }) {
   const hostname = getSiteHostname();
@@ -15,6 +16,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
             to="/"
             className="flex items-center gap-3 font-mono text-sm font-semibold tracking-wide text-ctp-text no-underline"
           >
+            <SiteMark className="h-8 w-7" />
             {hostname}
           </Link>
           <Link

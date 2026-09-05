@@ -9,9 +9,9 @@ import { IconCheck, IconCopy } from "@tabler/icons-react";
 import {
   Alert,
   Button,
+  DashboardPage,
   Field,
   Input,
-  PageHeading,
   Select,
   SettingsDialog,
   SettingsItem,
@@ -199,44 +199,45 @@ export function AppPasswordsPage({
     setPasswordCopied(false);
   }
 
-  const heading = (
-    <PageHeading
-      title={t("dashboard.navAppPasswords")}
-      description={t("appPasswords.description")}
-      actions={
-        <Button
-          type="button"
-          aria-haspopup="dialog"
-          aria-expanded={createDialogOpen}
-          disabled={creating}
-          onClick={openCreateDialog}
-        >
-          {t("appPasswords.createPassword")}
-        </Button>
-      }
-    />
+  const pageActions = (
+    <Button
+      type="button"
+      aria-haspopup="dialog"
+      aria-expanded={createDialogOpen}
+      disabled={creating}
+      onClick={openCreateDialog}
+    >
+      {t("appPasswords.createPassword")}
+    </Button>
   );
 
   if (passwords.loading && !passwords.data) {
     return (
-      <div className="mx-auto grid w-full max-w-[52rem] gap-6" aria-busy="true">
-        {heading}
+      <DashboardPage
+        title={t("dashboard.navAppPasswords")}
+        description={t("appPasswords.description")}
+        actions={pageActions}
+        busy
+      >
         <SettingsSection title={t("dashboard.navAppPasswords")} titleHidden>
           <SettingsItem title={t("common.loading")} />
           <SettingsItem title={t("common.loading")} />
         </SettingsSection>
-      </div>
+      </DashboardPage>
     );
   }
 
   if (!passwords.data) {
     return (
-      <div className="mx-auto grid w-full max-w-[52rem] gap-6">
-        {heading}
+      <DashboardPage
+        title={t("dashboard.navAppPasswords")}
+        description={t("appPasswords.description")}
+        actions={pageActions}
+      >
         <Alert tone="error">
           {passwords.error ?? t("appPasswords.loadFailed")}
         </Alert>
-      </div>
+      </DashboardPage>
     );
   }
 
@@ -245,8 +246,11 @@ export function AppPasswordsPage({
   );
 
   return (
-    <div className="mx-auto grid w-full max-w-[52rem] gap-6">
-      {heading}
+    <DashboardPage
+      title={t("dashboard.navAppPasswords")}
+      description={t("appPasswords.description")}
+      actions={pageActions}
+    >
       {passwords.error ? <Alert tone="error">{passwords.error}</Alert> : null}
       {error && !dialogOpen ? <Alert tone="error">{error}</Alert> : null}
       {notice ? <Alert tone="success">{notice}</Alert> : null}
@@ -440,6 +444,6 @@ export function AppPasswordsPage({
           </Button>
         </div>
       </SettingsDialog>
-    </div>
+    </DashboardPage>
   );
 }
