@@ -2,13 +2,15 @@ import type {
   ButtonHTMLAttributes,
   ComponentPropsWithRef,
   HTMLAttributes,
+  RefObject,
   ReactNode,
   SelectHTMLAttributes,
   TableHTMLAttributes,
   TextareaHTMLAttributes,
 } from "react";
-import { useId } from "react";
-import { IconLoader2 } from "@tabler/icons-react";
+import { useEffect, useId, useRef } from "react";
+import { createPortal } from "react-dom";
+import { IconLoader2, IconX } from "@tabler/icons-react";
 
 function joinClasses(
   ...classes: Array<string | false | null | undefined>
@@ -39,10 +41,10 @@ export function buttonClasses(
   size: ButtonSize = "default",
 ): string {
   return joinClasses(
-    "inline-flex items-center justify-center gap-2 rounded border font-semibold transition-colors",
+    "inline-flex items-center justify-center gap-2 rounded border font-semibold whitespace-nowrap transition-colors",
     size === "compact"
-      ? "min-h-9 px-3 py-1.5 text-xs"
-      : "min-h-10 px-4 py-2 text-sm",
+      ? "min-h-11 px-3 py-1.5 text-xs sm:min-h-9"
+      : "min-h-11 px-4 py-2 text-sm sm:min-h-10",
     buttonVariants[variant],
     className,
   );
@@ -226,6 +228,213 @@ export function SettingsRow({
         </div>
       ) : null}
     </div>
+  );
+}
+
+export function SettingsItem({
+  title,
+  description,
+  action,
+  children,
+  technical = false,
+}: {
+  title: ReactNode;
+  description?: ReactNode;
+  action?: ReactNode;
+  children?: ReactNode;
+  technical?: boolean;
+}) {
+  return (
+    <div className="grid min-w-0 grid-cols-1 gap-x-3 gap-y-1 px-4 py-3.5 min-[360px]:grid-cols-[minmax(0,1fr)_auto] sm:px-5">
+      <div className="min-w-0 self-center">
+        <div
+          className={joinClasses(
+            "text-sm font-medium break-words text-ctp-text",
+            technical && "font-mono",
+          )}
+        >
+          {title}
+        </div>
+        {description ? (
+          <div className="mt-1 text-xs leading-5 text-ctp-overlay1">
+            {description}
+          </div>
+        ) : null}
+      </div>
+      {action ? (
+        <div className="mt-2 shrink-0 self-center min-[360px]:mt-0">
+          {action}
+        </div>
+      ) : null}
+      {children ? (
+        <div className="col-span-1 mt-3 min-w-0 rounded border border-ctp-surface0 bg-ctp-crust/30 p-4 min-[360px]:col-span-2">
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function SettingsDialog({
+  open,
+  title,
+  description,
+  children,
+  initialFocusRef,
+  maxWidth = "md",
+  closeDisabled = false,
+  onClose,
+}: {
+  open: boolean;
+  title: string;
+  description?: string;
+  children: ReactNode;
+  initialFocusRef?: RefObject<HTMLElement | null>;
+  maxWidth?: "sm" | "md" | "lg";
+  closeDisabled?: boolean;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <SettingsDialogContent
+      title={title}
+      description={description}
+      initialFocusRef={initialFocusRef}
+      maxWidth={maxWidth}
+      closeDisabled={closeDisabled}
+      onClose={onClose}
+    >
+      {children}
+    </SettingsDialogContent>
+  );
+}
+
+function SettingsDialogContent({
+  title,
+  description,
+  children,
+  initialFocusRef,
+  maxWidth,
+  closeDisabled,
+  onClose,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+  initialFocusRef?: RefObject<HTMLElement | null>;
+  maxWidth: "sm" | "md" | "lg";
+  closeDisabled: boolean;
+  onClose: () => void;
+}) {
+  const titleId = useId();
+  const descriptionId = useId();
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const onCloseRef = useRef(onClose);
+  const closeDisabledRef = useRef(closeDisabled);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    closeDisabledRef.current = closeDisabled;
+  }, [closeDisabled, onClose]);
+
+  useEffect(() => {
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const previousOverflow = document.body.style.overflow;
+    const focusableSelector =
+      "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex='-1'])";
+    document.body.style.overflow = "hidden";
+    const usesCoarsePointer =
+      globalThis.matchMedia?.("(pointer: coarse)").matches ?? false;
+    const initialTarget =
+      (!usesCoarsePointer ? initialFocusRef?.current : null) ??
+      dialogRef.current?.querySelector<HTMLElement>(focusableSelector);
+    initialTarget?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (!closeDisabledRef.current) onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = [
+        ...(dialogRef.current?.querySelectorAll<HTMLElement>(
+          focusableSelector,
+        ) ?? []),
+      ];
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable.at(-1)!;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [initialFocusRef]);
+
+  return createPortal(
+    <div
+      className="fixed inset-x-0 top-0 z-50 grid h-dvh place-items-center overflow-hidden bg-ctp-crust/80 p-4 sm:backdrop-blur-sm"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !closeDisabledRef.current)
+          onCloseRef.current();
+      }}
+    >
+      <dialog
+        open
+        ref={dialogRef}
+        aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
+        aria-modal="true"
+        className={joinClasses(
+          "relative my-auto flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded border border-ctp-surface1 bg-ctp-mantle p-0 text-ctp-text shadow-2xl",
+          maxWidth === "sm" && "max-w-sm",
+          maxWidth === "md" && "max-w-lg",
+          maxWidth === "lg" && "max-w-2xl",
+        )}
+      >
+        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-ctp-surface0 px-5 py-4">
+          <div>
+            <h2 id={titleId} className="font-mono text-lg font-semibold">
+              {title}
+            </h2>
+            {description ? (
+              <p
+                id={descriptionId}
+                className="mt-1 text-sm leading-6 text-ctp-subtext0"
+              >
+                {description}
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className="grid size-11 shrink-0 place-items-center rounded text-ctp-subtext0 hover:bg-ctp-surface0 hover:text-ctp-text sm:size-9"
+            aria-label="Close"
+            disabled={closeDisabled}
+            onClick={() => onCloseRef.current()}
+          >
+            <IconX className="size-5" aria-hidden="true" />
+          </button>
+        </header>
+        <div className="min-h-0 overflow-y-auto px-5 py-5">{children}</div>
+      </dialog>
+    </div>,
+    document.body,
   );
 }
 

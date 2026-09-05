@@ -1,34 +1,21 @@
 import { useCallback, useState } from "react";
-import { IconCopy, IconEdit, IconTrash } from "@tabler/icons-react";
 import { ReauthDialog } from "../../components/ReauthDialog.tsx";
 import {
   Alert,
-  Button,
-  CodeBlock,
-  EmptyState,
-  Field,
-  Input,
-  Loading,
   PageHeading,
+  SettingsRow,
+  SettingsSection,
 } from "../../components/ui.tsx";
 import { useAsync } from "../../hooks/useAsync.ts";
 import { useSession } from "../../hooks/useSession.ts";
 import { api, ApiError } from "../../lib/api.ts";
-import { formatDateTime } from "../../lib/date.ts";
 import { createPasskeyCredential } from "../../lib/flows/perform-passkey-registration.ts";
 import type { SsoLinkedAccount, TrustedDevice } from "../../lib/types/api.ts";
 import {
-  AuthenticatorSection,
-  LinkedAccountSection,
-  PasskeySection,
-  PasswordSection,
-  TrustedDeviceSection,
+  SecuritySections,
+  type SsoProvider,
+  type TotpSetup,
 } from "./SecuritySections.tsx";
-
-interface SsoProvider {
-  provider: string;
-  name: string;
-}
 
 interface SecurityMessage {
   tone: "success" | "error" | "warning";
@@ -39,11 +26,6 @@ interface ReauthRequest {
   methods: string[];
   retry: () => Promise<void>;
 }
-
-type TotpSetup =
-  | { step: "idle" }
-  | { step: "scan"; qrBase64: string; uri: string }
-  | { step: "backup"; codes: string[] };
 
 type OptionalResult<T> = { data: T; error?: string };
 
@@ -118,23 +100,21 @@ export function SecurityPage() {
   const [reauthRequest, setReauthRequest] = useState<ReauthRequest | null>(
     null,
   );
-
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmedPassword, setConfirmedPassword] = useState("");
   const [showPasswordForm, setShowPasswordForm] = useState(false);
-
   const [totpSetup, setTotpSetup] = useState<TotpSetup>({ step: "idle" });
   const [totpCode, setTotpCode] = useState("");
   const [totpPassword, setTotpPassword] = useState("");
+  const [showTotpManager, setShowTotpManager] = useState(false);
   const [showTotpDisable, setShowTotpDisable] = useState(false);
   const [showBackupRegeneration, setShowBackupRegeneration] = useState(false);
   const [backupCodesSaved, setBackupCodesSaved] = useState(false);
-
   const [passkeyName, setPasskeyName] = useState("");
+  const [showPasskeyForm, setShowPasskeyForm] = useState(false);
   const [editingPasskeyId, setEditingPasskeyId] = useState<string | null>(null);
   const [editedPasskeyName, setEditedPasskeyName] = useState("");
-
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
   const [editedDeviceName, setEditedDeviceName] = useState("");
   const [linkingProvider, setLinkingProvider] = useState<string | null>(null);
@@ -188,6 +168,47 @@ export function SecurityPage() {
     }
   }
 
+  function cancelPasswordEditor() {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmedPassword("");
+    setShowPasswordForm(false);
+  }
+
+  function closeTotpEditor() {
+    setTotpSetup({ step: "idle" });
+    setTotpCode("");
+    setTotpPassword("");
+    setShowTotpManager(false);
+    setShowTotpDisable(false);
+    setShowBackupRegeneration(false);
+    setBackupCodesSaved(false);
+  }
+
+  function cancelPasskeyAdd() {
+    setPasskeyName("");
+    setShowPasskeyForm(false);
+  }
+
+  function cancelPasskeyRename() {
+    setEditingPasskeyId(null);
+    setEditedPasskeyName("");
+  }
+
+  function cancelDeviceRename() {
+    setEditingDeviceId(null);
+    setEditedDeviceName("");
+  }
+
+  function closeAllEditors() {
+    setMessage(null);
+    cancelPasswordEditor();
+    closeTotpEditor();
+    cancelPasskeyAdd();
+    cancelPasskeyRename();
+    cancelDeviceRename();
+  }
+
   async function savePassword(event: React.FormEvent) {
     event.preventDefault();
     if (newPassword !== confirmedPassword) {
@@ -204,10 +225,7 @@ export function SecurityPage() {
       } else {
         await api.setPassword(session.accessJwt, newPassword);
       }
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmedPassword("");
-      setShowPasswordForm(false);
+      cancelPasswordEditor();
       await security.reload();
     };
     await runSensitive(
@@ -222,6 +240,7 @@ export function SecurityPage() {
     if (!confirm("Remove password sign-in from this account?")) return;
     await runSensitive(async () => {
       await api.removePassword(session.accessJwt);
+      cancelPasswordEditor();
       await security.reload();
     }, "Password removed.");
   }
@@ -259,9 +278,7 @@ export function SecurityPage() {
         totpPassword,
         totpCode.replace(/\s/g, ""),
       );
-      setShowTotpDisable(false);
-      setTotpPassword("");
-      setTotpCode("");
+      closeTotpEditor();
       await security.reload();
     }, "Authenticator app disabled.");
   }
@@ -300,7 +317,7 @@ export function SecurityPage() {
         credential,
         passkeyName.trim() || undefined,
       );
-      setPasskeyName("");
+      cancelPasskeyAdd();
       await security.reload();
     }, "Passkey added.");
   }
@@ -313,8 +330,7 @@ export function SecurityPage() {
         editingPasskeyId,
         editedPasskeyName.trim(),
       );
-      setEditingPasskeyId(null);
-      setEditedPasskeyName("");
+      cancelPasskeyRename();
       await security.reload();
     }, "Passkey renamed.");
   }
@@ -335,8 +351,7 @@ export function SecurityPage() {
         editingDeviceId,
         editedDeviceName.trim(),
       );
-      setEditingDeviceId(null);
-      setEditedDeviceName("");
+      cancelDeviceRename();
       await security.reload();
     }, "Device renamed.");
   }
@@ -371,15 +386,33 @@ export function SecurityPage() {
     }, `${account.provider_name} unlinked.`);
   }
 
-  if (security.loading) {
-    return <Loading label="Loading security settings" />;
+  const heading = (
+    <PageHeading
+      title="Security"
+      description="Manage sign-in methods, two-factor authentication, and trusted access."
+    />
+  );
+
+  if (security.loading && !security.data) {
+    return (
+      <div className="mx-auto grid w-full max-w-[52rem] gap-6" aria-busy="true">
+        {heading}
+        <SettingsSection title="Sign-in methods">
+          <SettingsRow label="Password" value="Loading..." />
+          <SettingsRow label="Authenticator app" value="Loading..." />
+        </SettingsSection>
+      </div>
+    );
   }
 
   if (!security.data) {
     return (
-      <Alert tone="error">
-        {security.error ?? "Security settings could not be loaded."}
-      </Alert>
+      <div className="mx-auto grid w-full max-w-[52rem] gap-6">
+        {heading}
+        <Alert tone="error">
+          {security.error ?? "Security settings could not be loaded."}
+        </Alert>
+      </div>
     );
   }
 
@@ -392,440 +425,122 @@ export function SecurityPage() {
     providers,
     partialErrors,
   } = security.data;
+  const totpEditorOpen = showTotpManager || totpSetup.step !== "idle";
+  const dialogOpen = Boolean(
+    showPasswordForm ||
+    totpEditorOpen ||
+    showPasskeyForm ||
+    editingPasskeyId ||
+    editingDeviceId,
+  );
 
   return (
-    <div className="grid gap-6">
-      <PageHeading
-        title="Security"
-        description="Choose how you sign in and review devices with account access."
-      />
-      {message ? <Alert tone={message.tone}>{message.text}</Alert> : null}
+    <div className="mx-auto grid w-full max-w-[52rem] gap-6">
+      {heading}
+      {message && !dialogOpen ? (
+        <Alert tone={message.tone}>{message.text}</Alert>
+      ) : null}
       {partialErrors.length > 0 ? (
         <Alert tone="warning">{partialErrors.join(" ")}</Alert>
       ) : null}
-
-      <PasswordSection>
-        <p className="mt-2 text-sm text-ctp-subtext0">
-          {password.hasPassword
-            ? "Password sign-in is enabled."
-            : "This account has no password."}
-        </p>
-        {showPasswordForm ? (
-          <form className="mt-5 grid max-w-xl gap-4" onSubmit={savePassword}>
-            {password.hasPassword ? (
-              <Field label="Current password">
-                <Input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(event) => setCurrentPassword(event.target.value)}
-                  autoComplete="current-password"
-                  required
-                />
-              </Field>
-            ) : null}
-            <Field label="New password">
-              <Input
-                type="password"
-                minLength={8}
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                autoComplete="new-password"
-                required
-              />
-            </Field>
-            <Field label="Confirm new password">
-              <Input
-                type="password"
-                minLength={8}
-                value={confirmedPassword}
-                onChange={(event) => setConfirmedPassword(event.target.value)}
-                autoComplete="new-password"
-                required
-              />
-            </Field>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setShowPasswordForm(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                disabled={
-                  saving || newPassword.length < 8 || !confirmedPassword
-                }
-              >
-                {password.hasPassword ? "Change password" : "Add password"}
-              </Button>
-            </div>
-          </form>
-        ) : (
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button onClick={() => setShowPasswordForm(true)}>
-              {password.hasPassword ? "Change password" : "Add password"}
-            </Button>
-            {password.hasPassword && passkeys.length > 0 ? (
-              <Button variant="danger" onClick={() => void removePassword()}>
-                Remove password
-              </Button>
-            ) : null}
-          </div>
-        )}
-      </PasswordSection>
-
-      <AuthenticatorSection>
-        {totpSetup.step === "scan" ? (
-          <form className="mt-4 grid max-w-xl gap-4" onSubmit={enableTotp}>
-            <p className="text-sm text-ctp-subtext0">
-              Scan this code, then enter the six-digit number from your
-              authenticator app.
-            </p>
-            <img
-              className="size-48 rounded bg-white p-2"
-              src={`data:image/png;base64,${totpSetup.qrBase64}`}
-              alt="Authenticator QR code"
-            />
-            <details className="text-sm text-ctp-subtext0">
-              <summary>Enter the secret manually</summary>
-              <code className="mt-2 block rounded bg-ctp-crust p-3 text-xs break-all text-ctp-text">
-                {new URL(totpSetup.uri).searchParams.get("secret")}
-              </code>
-            </details>
-            <Field label="Authenticator code">
-              <Input
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={totpCode}
-                onChange={(event) => setTotpCode(event.target.value)}
-                required
-              />
-            </Field>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setTotpSetup({ step: "idle" })}
-              >
-                Cancel
-              </Button>
-              <Button
-                disabled={saving || totpCode.replace(/\s/g, "").length !== 6}
-              >
-                Enable
-              </Button>
-            </div>
-          </form>
-        ) : totpSetup.step === "backup" ? (
-          <div className="mt-4 grid max-w-xl gap-4">
-            <Alert tone="warning">
-              Save these one-time backup codes before closing this panel.
-            </Alert>
-            <CodeBlock className="columns-2">
-              {totpSetup.codes.join("\n")}
-            </CodeBlock>
-            <Button
-              variant="secondary"
-              onClick={() => void copyBackupCodes(totpSetup.codes)}
-            >
-              <IconCopy className="size-4" /> Copy codes
-            </Button>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={backupCodesSaved}
-                onChange={(event) => setBackupCodesSaved(event.target.checked)}
-              />{" "}
-              I saved the codes.
-            </label>
-            <Button
-              disabled={!backupCodesSaved}
-              onClick={() => setTotpSetup({ step: "idle" })}
-            >
-              Done
-            </Button>
-          </div>
-        ) : (
-          <div className="mt-4">
-            <p className="text-sm text-ctp-subtext0">
-              {totp.enabled
-                ? "Authenticator codes are required for sensitive sign-ins."
-                : "Add a second factor using any TOTP authenticator app."}
-            </p>
-            {!totp.enabled ? (
-              <Button
-                className="mt-4"
-                onClick={() => void startTotpSetup()}
-                disabled={saving}
-              >
-                Set up authenticator
-              </Button>
-            ) : (
-              <div className="mt-4 grid max-w-xl gap-4">
-                {!showTotpDisable && !showBackupRegeneration ? (
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="secondary"
-                      onClick={() => setShowBackupRegeneration(true)}
-                    >
-                      New backup codes
-                    </Button>
-                    <Button
-                      variant="danger"
-                      onClick={() => setShowTotpDisable(true)}
-                    >
-                      Disable authenticator
-                    </Button>
-                  </div>
-                ) : null}
-                {showTotpDisable || showBackupRegeneration ? (
-                  <form
-                    className="grid gap-4 rounded border border-ctp-surface0 bg-ctp-crust p-4"
-                    onSubmit={
-                      showTotpDisable ? disableTotp : regenerateBackupCodes
-                    }
-                  >
-                    <p className="text-sm text-ctp-subtext0">
-                      Enter your password and current authenticator code.
-                    </p>
-                    <Field label="Password">
-                      <Input
-                        type="password"
-                        value={totpPassword}
-                        onChange={(event) =>
-                          setTotpPassword(event.target.value)
-                        }
-                        required
-                      />
-                    </Field>
-                    <Field label="Authenticator code">
-                      <Input
-                        inputMode="numeric"
-                        maxLength={6}
-                        value={totpCode}
-                        onChange={(event) => setTotpCode(event.target.value)}
-                        required
-                      />
-                    </Field>
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => {
-                          setShowTotpDisable(false);
-                          setShowBackupRegeneration(false);
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        variant={showTotpDisable ? "danger" : "primary"}
-                        disabled={
-                          saving || !totpPassword || totpCode.length !== 6
-                        }
-                      >
-                        {showTotpDisable ? "Disable" : "Generate codes"}
-                      </Button>
-                    </div>
-                  </form>
-                ) : null}
-              </div>
-            )}
-          </div>
-        )}
-      </AuthenticatorSection>
-
-      <PasskeySection>
-        <div className="mt-4 flex max-w-xl flex-col gap-2 sm:flex-row">
-          <Input
-            value={passkeyName}
-            onChange={(event) => setPasskeyName(event.target.value)}
-            placeholder="Name this device"
-            aria-label="Passkey name"
-          />
-          <Button onClick={() => void addPasskey()} disabled={saving}>
-            Add passkey
-          </Button>
-        </div>
-        <div className="mt-5 grid gap-2">
-          {passkeys.length === 0 ? (
-            <EmptyState>No passkeys registered.</EmptyState>
-          ) : (
-            passkeys.map((passkey) => (
-              <div
-                key={passkey.id}
-                className="flex flex-col gap-3 rounded border border-ctp-surface0 bg-ctp-crust p-3 sm:flex-row sm:items-center sm:justify-between"
-              >
-                {editingPasskeyId === passkey.id ? (
-                  <div className="flex flex-1 gap-2">
-                    <Input
-                      value={editedPasskeyName}
-                      onChange={(event) =>
-                        setEditedPasskeyName(event.target.value)
-                      }
-                    />
-                    <Button onClick={() => void renamePasskey()}>Save</Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setEditingPasskeyId(null)}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <div>
-                      <p className="font-mono text-sm text-ctp-text">
-                        {passkey.friendlyName || "Unnamed passkey"}
-                      </p>
-                      <p className="mt-1 text-xs text-ctp-overlay1">
-                        Added {formatDateTime(passkey.createdAt)}
-                        {passkey.lastUsed
-                          ? ` · Used ${formatDateTime(passkey.lastUsed)}`
-                          : ""}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="secondary"
-                        onClick={() => {
-                          setEditingPasskeyId(passkey.id);
-                          setEditedPasskeyName(passkey.friendlyName ?? "");
-                        }}
-                      >
-                        <IconEdit className="size-4" /> Rename
-                      </Button>
-                      {password.hasPassword || passkeys.length > 1 ? (
-                        <Button
-                          variant="danger"
-                          onClick={() =>
-                            void removePasskey(
-                              passkey.id,
-                              passkey.friendlyName || "this passkey",
-                            )
-                          }
-                        >
-                          <IconTrash className="size-4" /> Delete
-                        </Button>
-                      ) : null}
-                    </div>
-                  </>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      </PasskeySection>
-
-      <TrustedDeviceSection>
-        <div className="mt-4 grid gap-2">
-          {trustedDevices.length === 0 ? (
-            <EmptyState>No trusted devices.</EmptyState>
-          ) : (
-            trustedDevices.map((device) => (
-              <div
-                key={device.id}
-                className="flex flex-col gap-3 rounded border border-ctp-surface0 bg-ctp-crust p-3 sm:flex-row sm:items-center sm:justify-between"
-              >
-                {editingDeviceId === device.id ? (
-                  <div className="flex flex-1 gap-2">
-                    <Input
-                      value={editedDeviceName}
-                      onChange={(event) =>
-                        setEditedDeviceName(event.target.value)
-                      }
-                    />
-                    <Button onClick={() => void renameDevice()}>Save</Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setEditingDeviceId(null)}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <div>
-                      <p className="font-mono text-sm text-ctp-text">
-                        {device.friendlyName || "Unnamed device"}
-                      </p>
-                      <p className="mt-1 text-xs text-ctp-overlay1">
-                        Last seen {formatDateTime(device.lastSeenAt)}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="secondary"
-                        onClick={() => {
-                          setEditingDeviceId(device.id);
-                          setEditedDeviceName(device.friendlyName ?? "");
-                        }}
-                      >
-                        <IconEdit className="size-4" /> Rename
-                      </Button>
-                      <Button
-                        variant="danger"
-                        onClick={() => void revokeDevice(device)}
-                      >
-                        Revoke
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      </TrustedDeviceSection>
-
-      {providers.length > 0 || linkedAccounts.length > 0 ? (
-        <LinkedAccountSection>
-          <div className="mt-4 grid gap-2">
-            {linkedAccounts.map((account) => (
-              <div
-                key={account.id}
-                className="flex items-center justify-between gap-4 rounded border border-ctp-surface0 bg-ctp-crust p-3"
-              >
-                <div>
-                  <p className="font-mono text-sm text-ctp-text">
-                    {account.provider_name}
-                  </p>
-                  <p className="mt-1 text-xs text-ctp-overlay1">
-                    {account.provider_username || account.provider_email}
-                  </p>
-                </div>
-                <Button
-                  variant="danger"
-                  onClick={() => void unlinkSso(account)}
-                >
-                  Unlink
-                </Button>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {providers
-              .filter(
-                (provider) =>
-                  !linkedAccounts.some(
-                    (account) => account.provider === provider.provider,
-                  ),
-              )
-              .map((provider) => (
-                <Button
-                  key={provider.provider}
-                  variant="secondary"
-                  disabled={linkingProvider !== null}
-                  onClick={() => void linkSso(provider)}
-                >
-                  Link {provider.name}
-                </Button>
-              ))}
-          </div>
-        </LinkedAccountSection>
-      ) : null}
-
+      <SecuritySections
+        saving={saving}
+        notice={message}
+        password={{
+          hasPassword: password.hasPassword,
+          canRemove: passkeys.length > 0,
+          editorOpen: showPasswordForm,
+          currentPassword,
+          newPassword,
+          confirmedPassword,
+          openEditor: () => {
+            closeAllEditors();
+            setShowPasswordForm(true);
+          },
+          cancelEditor: cancelPasswordEditor,
+          setCurrentPassword,
+          setNewPassword,
+          setConfirmedPassword,
+          save: savePassword,
+          remove: () => void removePassword(),
+        }}
+        authenticator={{
+          enabled: totp.enabled,
+          editorOpen: totpEditorOpen,
+          setup: totpSetup,
+          code: totpCode,
+          password: totpPassword,
+          backupCodesSaved,
+          disabling: showTotpDisable,
+          regeneratingCodes: showBackupRegeneration,
+          openEditor: () => {
+            closeAllEditors();
+            if (totp.enabled) setShowTotpManager(true);
+            else void startTotpSetup();
+          },
+          closeEditor: closeTotpEditor,
+          setCode: setTotpCode,
+          setPassword: setTotpPassword,
+          setBackupCodesSaved,
+          enable: enableTotp,
+          disable: disableTotp,
+          regenerateCodes: regenerateBackupCodes,
+          copyCodes: (codes) => void copyBackupCodes(codes),
+          startDisable: () => setShowTotpDisable(true),
+          startCodeRegeneration: () => setShowBackupRegeneration(true),
+          cancelSensitiveAction: () => {
+            setTotpPassword("");
+            setTotpCode("");
+            setShowTotpDisable(false);
+            setShowBackupRegeneration(false);
+          },
+        }}
+        passkeys={{
+          items: passkeys,
+          hasPassword: password.hasPassword,
+          addEditorOpen: showPasskeyForm,
+          name: passkeyName,
+          editingId: editingPasskeyId,
+          editedName: editedPasskeyName,
+          openAddEditor: () => {
+            closeAllEditors();
+            setShowPasskeyForm(true);
+          },
+          cancelAddEditor: cancelPasskeyAdd,
+          setName: setPasskeyName,
+          add: () => void addPasskey(),
+          startRename: (id, name) => {
+            closeAllEditors();
+            setEditingPasskeyId(id);
+            setEditedPasskeyName(name);
+          },
+          cancelRename: cancelPasskeyRename,
+          setEditedName: setEditedPasskeyName,
+          rename: () => void renamePasskey(),
+          remove: (id, name) => void removePasskey(id, name),
+        }}
+        trustedDevices={{
+          items: trustedDevices,
+          editingId: editingDeviceId,
+          editedName: editedDeviceName,
+          startRename: (id, name) => {
+            closeAllEditors();
+            setEditingDeviceId(id);
+            setEditedDeviceName(name);
+          },
+          cancelRename: cancelDeviceRename,
+          setEditedName: setEditedDeviceName,
+          rename: () => void renameDevice(),
+          revoke: (device) => void revokeDevice(device),
+        }}
+        linkedAccounts={{
+          items: linkedAccounts,
+          providers,
+          linkingProvider,
+          link: (provider) => void linkSso(provider),
+          unlink: (account) => void unlinkSso(account),
+        }}
+      />
       {reauthRequest ? (
         <ReauthDialog
           methods={reauthRequest.methods}
