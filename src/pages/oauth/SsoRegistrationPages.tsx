@@ -9,6 +9,7 @@ import {
   Loading,
   Select,
 } from "../../components/ui.tsx";
+import { api } from "../../lib/api.ts";
 import {
   ensureRequestUri,
   getOAuthRequestUri,
@@ -230,8 +231,8 @@ export function SsoRegisterCompletePage() {
         if (active) setLoading(false);
       });
 
-    void fetch("/xrpc/com.atproto.server.describeServer")
-      .then((response) => readJson<ServerDescription>(response))
+    void api
+      .describeServer()
       .then((description) => {
         if (!active) return;
         setServer(description);

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthLayout } from "../../components/AuthLayout.tsx";
 import { Alert, Button, Field, Input, Loading } from "../../components/ui.tsx";
+import { api } from "../../lib/api.ts";
 import { readJson, requestParameter } from "../../lib/http.ts";
 import {
   prepareRequestOptions,
@@ -231,11 +232,7 @@ export function OAuthDelegationPage() {
     try {
       let controllerDid = controller.trim().replace(/^@/, "");
       if (!controllerDid.startsWith("did:")) {
-        const resolved = await readJson<{ did: string }>(
-          await fetch(
-            `/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(controllerDid)}`,
-          ),
-        );
+        const resolved = await api.resolveHandle(controllerDid);
         controllerDid = resolved.did;
       }
       const result = await readJson<{ redirect_uri?: string }>(

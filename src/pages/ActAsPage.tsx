@@ -3,22 +3,16 @@ import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { AuthLayout } from "../components/AuthLayout.tsx";
 import { Alert, Loading } from "../components/ui.tsx";
 import { useAuthState } from "../hooks/useAuthState.ts";
+import { api } from "../lib/api.ts";
 import { createAuthenticatedClient } from "../lib/authenticated-client.ts";
 import {
-  createDPoPProofForRequest,
   generateCodeChallenge,
   generateCodeVerifier,
   generateState,
   saveOAuthState,
   SCOPES,
-  setDPoPNonce,
 } from "../lib/oauth.ts";
-
-interface DelegationAuthResponse {
-  success?: boolean;
-  redirect_uri?: string;
-  error?: string;
-}
+import { unsafeAsDid } from "../lib/types/branded.ts";
 
 export function ActAsPage() {
   const auth = useAuthState();
@@ -68,36 +62,11 @@ export function ActAsPage() {
       if (!par.request_uri)
         throw new Error("The server returned an invalid sign-in request.");
 
-      const endpoint = `${globalThis.location.origin}/oauth/delegation/auth-token`;
-      async function authorize(retry: boolean): Promise<Response> {
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            authorization: `DPoP ${session.accessJwt}`,
-            "content-type": "application/json",
-            dpop: await createDPoPProofForRequest(
-              "POST",
-              endpoint,
-              session.accessJwt,
-            ),
-          },
-          body: JSON.stringify({
-            request_uri: par.request_uri,
-            delegated_did: delegatedDid,
-          }),
-        });
-        const nonce = response.headers.get("DPoP-Nonce");
-        if (!response.ok && retry && nonce) {
-          setDPoPNonce(nonce);
-          return authorize(false);
-        }
-        return response;
-      }
-
-      const response = await authorize(true);
-      const result = (await response.json()) as DelegationAuthResponse;
-      if (!response.ok || !result.success || !result.redirect_uri)
-        throw new Error(result.error ?? "Could not start delegated sign-in.");
+      const result = await api.authorizeDelegatedSession(
+        session.accessJwt,
+        par.request_uri,
+        unsafeAsDid(delegatedDid),
+      );
       globalThis.location.assign(result.redirect_uri);
     })().catch((caught) =>
       setError(
