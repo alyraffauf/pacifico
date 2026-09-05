@@ -1,9 +1,14 @@
 import {
-  defs,
   type IndexedEntry,
   normalizeOp,
   type Operation,
+  PlcClient,
+  PlcClientError,
+  signOperation,
+  type UnsignedOperation,
+  validateIncomingOp,
 } from "@atcute/did-plc";
+import type { DidKeyString, DidPlcString } from "@atcute/did-plc";
 import {
   P256PrivateKey,
   parsePrivateMultikey,
@@ -11,14 +16,12 @@ import {
   Secp256k1PrivateKey,
   Secp256k1PrivateKeyExportable,
 } from "@atcute/crypto";
-import * as CBOR from "@atcute/cbor";
 import {
   fromBase16,
   fromBase58Btc,
   fromBase64Url,
   toBase64Url,
 } from "@atcute/multibase";
-import { parse } from "valibot";
 
 export type PrivateKey = P256PrivateKey | Secp256k1PrivateKey;
 
@@ -47,6 +50,20 @@ type KeyCurve = "secp256k1" | "p256";
 
 const HEX_PRIVATE_KEY_REGEX = /^[0-9a-f]{64}$/i;
 const BASE58BTC_CHARSET_REGEX = /^[a-km-zA-HJ-NP-Z1-9]+$/;
+
+const asUnsignedOperation = (
+  operation: PlcOperationData,
+): UnsignedOperation => ({
+  type: operation.type,
+  prev: operation.prev,
+  alsoKnownAs: operation.alsoKnownAs,
+  rotationKeys: operation.rotationKeys as DidKeyString[],
+  services: operation.services,
+  verificationMethods: operation.verificationMethods as Record<
+    string,
+    DidKeyString
+  >,
+});
 
 const importRawBytes = (
   bytes: Uint8Array,
@@ -181,19 +198,23 @@ const jsonToB64Url = (obj: unknown): string => {
 };
 
 export class PlcOps {
-  private plcDirectoryUrl: string;
+  private client: PlcClient;
 
   constructor(plcDirectoryUrl = "https://plc.directory") {
-    this.plcDirectoryUrl = plcDirectoryUrl;
+    this.client = new PlcClient({ serviceUrl: plcDirectoryUrl });
   }
 
   async getPlcAuditLogs(did: string): Promise<IndexedEntry[]> {
-    const response = await fetch(`${this.plcDirectoryUrl}/${did}/log/audit`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch PLC audit logs: ${response.status}`);
+    try {
+      return await this.client.getAuditLog(did as DidPlcString);
+    } catch (caught) {
+      if (caught instanceof PlcClientError) {
+        throw new Error(`Failed to fetch PLC audit logs: ${caught.status}`, {
+          cause: caught,
+        });
+      }
+      throw caught;
     }
-    const json = await response.json();
-    return parse(defs.indexedEntryLog, json);
   }
 
   async getLastPlcOpFromPlc(
@@ -310,14 +331,11 @@ export class PlcOps {
       },
     };
 
-    const opBytes = CBOR.encode(operation);
-    const sigBytes = await signingRotationKey.sign(opBytes);
-    const signature = toBase64Url(sigBytes);
-
-    const signedOperation = {
-      ...operation,
-      sig: signature,
-    };
+    const signedOperation = await signOperation(
+      asUnsignedOperation(operation),
+      signingRotationKey,
+    );
+    validateIncomingOp(signedOperation);
 
     await this.pushPlcOperation(did, signedOperation);
   }
@@ -326,27 +344,22 @@ export class PlcOps {
     did: string,
     operation: PlcOperationData,
   ): Promise<void> {
-    const response = await fetch(`${this.plcDirectoryUrl}/${did}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(operation),
-    });
-
-    if (!response.ok) {
-      const contentType = response.headers.get("content-type");
-      if (contentType?.includes("application/json")) {
-        const json = await response.json();
-        if (
-          typeof json === "object" &&
-          json !== null &&
-          typeof json.message === "string"
-        ) {
-          throw new Error(json.message);
+    try {
+      validateIncomingOp(operation as Operation);
+      await this.client.submitOperation(
+        did as DidPlcString,
+        operation as Operation,
+      );
+    } catch (caught) {
+      if (caught instanceof PlcClientError) {
+        if (caught.body?.message) {
+          throw new Error(caught.body.message, { cause: caught });
         }
+        throw new Error(`PLC directory returned HTTP ${caught.status}`, {
+          cause: caught,
+        });
       }
-      throw new Error(`PLC directory returned HTTP ${response.status}`);
+      throw caught;
     }
   }
 
@@ -416,14 +429,11 @@ export class PlcOps {
       verificationMethods: credentials.verificationMethods || {},
     };
 
-    const opBytes = CBOR.encode(operation);
-    const sigBytes = await signingKey.sign(opBytes);
-    const signature = toBase64Url(sigBytes);
-
-    const signedOperation = {
-      ...operation,
-      sig: signature,
-    };
+    const signedOperation = await signOperation(
+      asUnsignedOperation(operation),
+      signingKey,
+    );
+    validateIncomingOp(signedOperation);
 
     await this.pushPlcOperation(did, signedOperation);
   }
