@@ -319,6 +319,12 @@
   },
   "sessions": {
     "noSessions": "활성 세션이 없습니다.",
+    "description": "계정이 로그인된 위치를 확인하고 알 수 없는 세션을 종료하세요.",
+    "listTitle": "로그인된 세션",
+    "listDescription": "각 세션은 만료되거나 취소할 때까지 계정에 접근할 수 있습니다.",
+    "controlsTitle": "세션 관리",
+    "otherSessions": "다른 세션",
+    "otherSessionsDescription": "이 세션을 제외한 모든 곳에서 로그아웃합니다.",
     "current": "현재",
     "oauth": "OAuth",
     "session": "세션",

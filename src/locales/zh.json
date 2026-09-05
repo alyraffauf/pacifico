@@ -319,6 +319,12 @@
   },
   "sessions": {
     "noSessions": "没有活跃的登录会话",
+    "description": "查看账户的登录位置，并结束无法识别的会话。",
+    "listTitle": "已登录的会话",
+    "listDescription": "每个会话都可访问你的账户，直到会话过期或被撤销。",
+    "controlsTitle": "会话管理",
+    "otherSessions": "其他会话",
+    "otherSessionsDescription": "退出除当前会话之外的所有会话。",
     "current": "当前",
     "oauth": "OAuth",
     "session": "会话",

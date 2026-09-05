@@ -148,37 +148,63 @@ export function Card({
 export function SettingsSection({
   title,
   description,
+  action,
   tone = "default",
   children,
 }: {
   title: string;
   description?: string;
+  action?: ReactNode;
   tone?: "default" | "danger";
   children: ReactNode;
 }) {
   const titleId = useId();
   return (
     <section aria-labelledby={titleId}>
-      <header className="mb-2 px-1">
-        <h2
-          id={titleId}
-          className={joinClasses(
-            "font-mono text-sm font-semibold",
-            tone === "danger" ? "text-ctp-red" : "text-ctp-text",
-          )}
-        >
-          {title}
-        </h2>
-        {description ? (
-          <p className="mt-1 text-xs leading-5 text-ctp-subtext0">
-            {description}
-          </p>
-        ) : null}
+      <header className="mb-2 flex flex-col items-start gap-2 px-1 min-[360px]:flex-row min-[360px]:items-end min-[360px]:justify-between min-[360px]:gap-3">
+        <div className="min-w-0">
+          <h2
+            id={titleId}
+            className={joinClasses(
+              "font-mono text-sm font-semibold",
+              tone === "danger" ? "text-ctp-red" : "text-ctp-text",
+            )}
+          >
+            {title}
+          </h2>
+          {description ? (
+            <p className="mt-1 text-xs leading-5 text-ctp-subtext0">
+              {description}
+            </p>
+          ) : null}
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
       </header>
       <div className="divide-y divide-ctp-surface0 overflow-hidden rounded border border-ctp-surface1 bg-ctp-mantle">
         {children}
       </div>
     </section>
+  );
+}
+
+export function SettingsTag({
+  children,
+  tone = "neutral",
+}: {
+  children: ReactNode;
+  tone?: "neutral" | "accent";
+}) {
+  return (
+    <span
+      className={joinClasses(
+        "inline-flex rounded px-2 py-0.5 font-mono text-[0.6875rem] leading-4 font-medium lowercase",
+        tone === "accent"
+          ? "bg-ctp-lavender/15 text-ctp-lavender"
+          : "bg-ctp-surface0 text-ctp-subtext0",
+      )}
+    >
+      {children}
+    </span>
   );
 }
 
@@ -198,7 +224,7 @@ export function SettingsRow({
   technical?: boolean;
 }) {
   return (
-    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 px-4 py-3.5 sm:grid-cols-[8.5rem_minmax(0,1fr)_auto] sm:items-center sm:px-5">
+    <div className="grid min-w-0 grid-cols-1 gap-x-3 gap-y-1 px-4 py-3.5 min-[360px]:grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[8.5rem_minmax(0,1fr)_auto] sm:items-center sm:px-5">
       <div className="text-sm font-medium text-ctp-subtext0">{label}</div>
       <div className="col-start-1 min-w-0 sm:col-start-2 sm:row-start-1">
         {value ? (
@@ -218,12 +244,12 @@ export function SettingsRow({
         ) : null}
       </div>
       {action ? (
-        <div className="col-start-2 row-span-2 row-start-1 shrink-0 self-center sm:col-start-3 sm:row-span-1">
+        <div className="col-start-1 mt-2 shrink-0 self-center justify-self-start min-[360px]:col-start-2 min-[360px]:row-span-2 min-[360px]:row-start-1 min-[360px]:mt-0 min-[360px]:justify-self-auto sm:col-start-3 sm:row-span-1">
           {action}
         </div>
       ) : null}
       {children ? (
-        <div className="col-span-2 mt-3 min-w-0 rounded border border-ctp-surface0 bg-ctp-crust/30 p-4 sm:col-start-2 sm:col-end-4">
+        <div className="col-span-1 mt-3 min-w-0 rounded border border-ctp-surface0 bg-ctp-crust/30 p-4 min-[360px]:col-span-2 sm:col-start-2 sm:col-end-4">
           {children}
         </div>
       ) : null}

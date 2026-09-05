@@ -319,6 +319,12 @@
   },
   "sessions": {
     "noSessions": "アクティブなセッションが見つかりません。",
+    "description": "アカウントのログイン先を確認し、心当たりのないセッションを終了します。",
+    "listTitle": "ログイン中のセッション",
+    "listDescription": "各セッションは、有効期限が切れるか取り消すまでアカウントにアクセスできます。",
+    "controlsTitle": "セッション管理",
+    "otherSessions": "その他のセッション",
+    "otherSessionsDescription": "このセッション以外のすべての場所からサインアウトします。",
     "current": "現在",
     "oauth": "OAuth",
     "session": "セッション",
