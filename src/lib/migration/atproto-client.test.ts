@@ -101,6 +101,67 @@ describe("AtprotoClient transport", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it("shares one successful refresh between concurrent expired requests", async () => {
+    let refreshCalls = 0;
+    let expiredCalls = 0;
+    let retryCalls = 0;
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockImplementation((input, init) => {
+        const url = input.toString();
+        const authorization = new Headers(init?.headers).get("Authorization");
+
+        if (url.endsWith("com.atproto.server.refreshSession")) {
+          refreshCalls += 1;
+          return Promise.resolve(
+            jsonResponse({
+              did: "did:plc:alice",
+              handle: "alice.test",
+              accessJwt: "new-access",
+              refreshJwt: "new-refresh",
+            }),
+          );
+        }
+        if (authorization === "Bearer old-access") {
+          expiredCalls += 1;
+          return Promise.resolve(
+            jsonResponse(
+              { error: "ExpiredToken", message: "token expired" },
+              { status: 401 },
+            ),
+          );
+        }
+
+        retryCalls += 1;
+        return Promise.resolve(
+          jsonResponse({
+            did: "did:plc:pds",
+            availableUserDomains: [".test"],
+            inviteCodeRequired: false,
+          }),
+        );
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new AtprotoClient("https://pds.example");
+    client.setAccessToken("old-access");
+    client.setRefreshToken("old-refresh");
+
+    const [first, second] = await Promise.all([
+      client.describeServer(),
+      client.describeServer(),
+    ]);
+
+    expect(first.did).toBe("did:plc:pds");
+    expect(second.did).toBe("did:plc:pds");
+    expect({ refreshCalls, expiredCalls, retryCalls }).toEqual({
+      refreshCalls: 1,
+      expiredCalls: 2,
+      retryCalls: 2,
+    });
+    expect(client.getAccessToken()).toBe("new-access");
+    expect(client.getRefreshToken()).toBe("new-refresh");
+  });
+
   it("retries once with a DPoP nonce", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()

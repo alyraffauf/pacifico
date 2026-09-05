@@ -67,7 +67,7 @@ export class AtprotoClient {
   private refreshToken: string | null = null;
   private dpopKeyPair: DPoPKeyPair | null = null;
   private dpopNonce: string | null = null;
-  private isRefreshing = false;
+  private refreshPromise: Promise<boolean> | null = null;
   private oauthTokenEndpoint: string | null = null;
   private oauthClientId: string | null = null;
 
@@ -201,12 +201,27 @@ export class AtprotoClient {
   }
 
   private async tryRefreshToken(): Promise<boolean> {
-    if (!this.refreshToken || this.isRefreshing) return false;
-    this.isRefreshing = true;
+    if (this.refreshPromise) {
+      return this.refreshPromise;
+    }
+    if (!this.refreshToken) return false;
+
+    const refreshPromise = this.refreshTokenInternal();
+    this.refreshPromise = refreshPromise;
+    try {
+      return await refreshPromise;
+    } finally {
+      if (this.refreshPromise === refreshPromise) {
+        this.refreshPromise = null;
+      }
+    }
+  }
+
+  private async refreshTokenInternal(): Promise<boolean> {
     try {
       if (this.dpopKeyPair && this.oauthTokenEndpoint && this.oauthClientId) {
         const tokens = await refreshSourceOAuthToken(this.oauthTokenEndpoint, {
-          refreshToken: this.refreshToken,
+          refreshToken: this.refreshToken!,
           clientId: this.oauthClientId,
           dpopKeyPair: this.dpopKeyPair,
           nonce: this.dpopNonce ?? undefined,
@@ -215,14 +230,12 @@ export class AtprotoClient {
         this.refreshToken = tokens.refresh_token ?? this.refreshToken;
         return true;
       }
-      const session = await this.refreshSessionInternal(this.refreshToken);
+      const session = await this.refreshSessionInternal(this.refreshToken!);
       this.accessToken = session.accessJwt;
       this.refreshToken = session.refreshJwt;
       return true;
     } catch {
       return false;
-    } finally {
-      this.isRefreshing = false;
     }
   }
 
