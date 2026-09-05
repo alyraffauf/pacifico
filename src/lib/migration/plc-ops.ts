@@ -18,6 +18,7 @@ import {
   fromBase64Url,
   toBase64Url,
 } from "@atcute/multibase";
+import { parse } from "valibot";
 
 export type PrivateKey = P256PrivateKey | Secp256k1PrivateKey;
 
@@ -192,7 +193,7 @@ export class PlcOps {
       throw new Error(`Failed to fetch PLC audit logs: ${response.status}`);
     }
     const json = await response.json();
-    return defs.indexedEntryLog.parse(json);
+    return parse(defs.indexedEntryLog, json);
   }
 
   async getLastPlcOpFromPlc(
