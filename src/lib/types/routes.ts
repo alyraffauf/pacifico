@@ -7,7 +7,6 @@ export const routes = {
   appPasswords: "/app-passwords",
   inviteCodes: "/invite-codes",
   comms: "/comms",
-  repo: "/repo",
   controllers: "/controllers",
 
   actAs: "/act-as",

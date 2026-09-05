@@ -72,10 +72,6 @@ const CommunicationPage = page(
   () => import("./pages/dashboard/CommunicationPage.tsx"),
   "CommunicationPage",
 );
-const RepositoryPage = page(
-  () => import("./pages/dashboard/RepositoryPage.tsx"),
-  "RepositoryPage",
-);
 const InviteCodesPage = page(
   () => import("./pages/dashboard/InviteCodesPage.tsx"),
   "InviteCodesPage",
@@ -234,7 +230,6 @@ export default function App() {
             <Route path="sessions" element={<SessionsPage />} />
             <Route path="app-passwords" element={<AppPasswordsPage />} />
             <Route path="comms" element={<CommunicationPage />} />
-            <Route path="repo" element={<RepositoryPage />} />
             <Route path="controllers" element={<DelegationPage />} />
             <Route path="invite-codes" element={<InviteCodesPage />} />
             <Route path="did-document" element={<DidDocumentPage />} />

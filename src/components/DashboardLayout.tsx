@@ -36,6 +36,7 @@ type NavigationItem = {
   labelKey: string;
   icon: ComponentType<{ className?: string; "aria-hidden"?: "true" }>;
   visible?: (session: Session) => boolean;
+  externalUrl?: (session: Session) => string;
 };
 
 function isHostedDidWeb(session: Session): boolean {
@@ -80,6 +81,7 @@ const navigationItems: NavigationItem[] = [
     labelKey: "dashboard.navRepo",
     icon: IconBook,
     visible: (session) => session.accountKind !== "migrated",
+    externalUrl: (session) => `https://pdsls.dev/at://${session.did}`,
   },
   {
     path: "controllers",
@@ -261,18 +263,38 @@ export function DashboardLayout({
                 return false;
               return item.visible?.(session) ?? true;
             })
-            .map(({ path, labelKey, icon: Icon }) => (
-              <NavLink
-                key={path}
-                to={`/app/${path}`}
-                className={({ isActive }) =>
-                  `flex min-h-10 shrink-0 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium no-underline transition-colors ${isActive ? "bg-ctp-surface-0 text-ctp-lavender" : "text-ctp-subtext-0 hover:bg-ctp-mantle hover:text-ctp-text"}`
-                }
-              >
-                <Icon className="size-5 shrink-0" aria-hidden="true" />
-                <span className="whitespace-nowrap">{t(labelKey)}</span>
-              </NavLink>
-            ))}
+            .map(({ path, labelKey, icon: Icon, externalUrl }) => {
+              const content = (
+                <>
+                  <Icon className="size-5 shrink-0" aria-hidden="true" />
+                  <span className="whitespace-nowrap">{t(labelKey)}</span>
+                </>
+              );
+              if (externalUrl) {
+                return (
+                  <a
+                    key={path}
+                    href={externalUrl(session)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex min-h-10 shrink-0 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-ctp-subtext-0 no-underline transition-colors hover:bg-ctp-mantle hover:text-ctp-text"
+                  >
+                    {content}
+                  </a>
+                );
+              }
+              return (
+                <NavLink
+                  key={path}
+                  to={`/app/${path}`}
+                  className={({ isActive }) =>
+                    `flex min-h-10 shrink-0 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium no-underline transition-colors ${isActive ? "bg-ctp-surface-0 text-ctp-lavender" : "text-ctp-subtext-0 hover:bg-ctp-mantle hover:text-ctp-text"}`
+                  }
+                >
+                  {content}
+                </NavLink>
+              );
+            })}
         </nav>
       </aside>
 
