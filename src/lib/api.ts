@@ -1,3 +1,4 @@
+import { Client } from "@atcute/client";
 import { err, ok, type Result } from "./types/result.ts";
 import type {
   AccessToken,
@@ -19,14 +20,14 @@ import {
   unsafeAsScopeSet,
 } from "./types/branded.ts";
 import {
-  createDPoPProofForRequest,
-  getDPoPNonce,
-  setDPoPNonce,
-} from "./oauth.ts";
+  ApiError,
+  mainApiTransport,
+  setTokenRefreshCallback,
+  type RawRequestOptions,
+} from "./api-transport.ts";
 import type {
   AccountInfo,
   AccountState,
-  ApiErrorCode,
   AppPassword,
   CompletePasskeySetupResponse,
   ConfirmSignupResult,
@@ -86,77 +87,6 @@ import type {
   VerifyTokenResponse,
 } from "./types/api.ts";
 
-const API_BASE = "/xrpc";
-
-const STATUS_FALLBACK_MESSAGE: Record<number, string> = {
-  400: "Bad request",
-  401: "Authentication required",
-  403: "Forbidden",
-  404: "Not found",
-  429: "Rate limit exceeded",
-  500: "Internal server error",
-  502: "Bad gateway",
-  503: "Service unavailable",
-  504: "Gateway timeout",
-};
-
-export class ApiError extends Error {
-  public did?: Did;
-  public reauthMethods?: string[];
-  constructor(
-    public status: number,
-    public error: ApiErrorCode,
-    message: string,
-    did?: string,
-    reauthMethods?: string[],
-  ) {
-    super(message ?? STATUS_FALLBACK_MESSAGE[status] ?? "Request failed");
-    this.name = "ApiError";
-    this.did = did ? unsafeAsDid(did) : undefined;
-    this.reauthMethods = reauthMethods;
-  }
-}
-
-let tokenRefreshCallback: (() => Promise<AccessToken | null>) | null = null;
-
-export function setTokenRefreshCallback(
-  callback: () => Promise<AccessToken | null>,
-) {
-  tokenRefreshCallback = callback;
-}
-
-interface AuthenticatedFetchOptions {
-  method?: "GET" | "POST";
-  token: AccessToken | RefreshToken;
-  headers?: Record<string, string>;
-  body?: BodyInit;
-}
-
-async function authenticatedFetch(
-  url: string,
-  options: AuthenticatedFetchOptions,
-): Promise<Response> {
-  const { method = "GET", token, headers = {}, body } = options;
-  const fullUrl = url.startsWith("http")
-    ? url
-    : `${globalThis.location.origin}${url}`;
-  const dpopProof = await createDPoPProofForRequest(method, fullUrl, token);
-  const res = await fetch(url, {
-    method,
-    headers: {
-      ...headers,
-      Authorization: `DPoP ${token}`,
-      DPoP: dpopProof,
-    },
-    body,
-  });
-  const dpopNonce = res.headers.get("DPoP-Nonce");
-  if (dpopNonce) {
-    setDPoPNonce(dpopNonce);
-  }
-  return res;
-}
-
 interface XrpcOptions {
   method?: "GET" | "POST";
   params?: Record<string, string>;
@@ -175,69 +105,54 @@ async function xrpc<T>(method: string, options?: XrpcOptions): Promise<T> {
     skipRetry,
     skipDpopRetry,
   } = options ?? {};
-  let url = `${API_BASE}/${method}`;
-  if (params) {
-    const searchParams = new URLSearchParams(params);
-    url += `?${searchParams}`;
-  }
-  const headers: Record<string, string> = {};
-  if (body) {
-    headers["Content-Type"] = "application/json";
-  }
-  const res = token
-    ? await authenticatedFetch(url, {
-        method: httpMethod,
-        token,
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
-      })
-    : await fetch(url, {
-        method: httpMethod,
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
-      });
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({
-      error: "Unknown",
-      message: res.statusText,
-    }));
-    if (
-      res.status === 401 &&
-      errData.error === "use_dpop_nonce" &&
-      token &&
-      !skipDpopRetry &&
-      getDPoPNonce()
-    ) {
-      return xrpc(method, { ...options, skipDpopRetry: true });
-    }
-    if (
-      res.status === 401 &&
-      (errData.error === "AuthenticationFailed" ||
-        errData.error === "ExpiredToken" ||
-        errData.error === "OAuthExpiredToken") &&
-      token &&
-      tokenRefreshCallback &&
-      !skipRetry
-    ) {
-      const newToken = await tokenRefreshCallback();
-      if (newToken && newToken !== token) {
-        return xrpc(method, { ...options, token: newToken, skipRetry: true });
-      }
-    }
-    const message =
-      res.status === 429
-        ? errData.message || "Too many requests. Please try again later."
-        : errData.message;
-    throw new ApiError(
-      res.status,
-      errData.error as ApiErrorCode,
-      message,
-      errData.did,
-      errData.reauthMethods,
+  const headers = body ? { "Content-Type": "application/json" } : undefined;
+  const transportOptions: RawRequestOptions = {
+    method: httpMethod,
+    params,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+    authentication: token
+      ? { type: "refreshable-dpop", token: token as AccessToken }
+      : { type: "none" },
+    retryExpiredToken: !skipRetry,
+    retryNonce: !skipDpopRetry,
+  };
+  return mainApiTransport.requestXrpc<T>(method, transportOptions);
+}
+
+type AtcuteResponse =
+  | { ok: true; status: number; headers: Headers; data: unknown }
+  | { ok: false; status: number; headers: Headers; data: unknown };
+
+const client = new Client({ handler: mainApiTransport.handleAtcuteFetch });
+const noRefreshClient = new Client({
+  handler: mainApiTransport.handleAtcuteFetchWithoutRefresh,
+});
+
+async function unwrapAtcute<T>(request: Promise<AtcuteResponse>): Promise<T> {
+  const response = await request;
+  if (!response.ok) {
+    throw mainApiTransport.createApiErrorFromData(
+      response.status,
+      response.data,
     );
   }
-  return res.json();
+  return response.data as T;
 }
+
+function withToken(token: AccessToken | RefreshToken): HeadersInit {
+  return { Authorization: `DPoP ${token}` };
+}
+
+const asAtcuteDid = (did: Did): `did:${string}:${string}` =>
+  did as `did:${string}:${string}`;
+const asAtcuteHandle = (handle: string): `${string}.${string}` =>
+  handle as `${string}.${string}`;
+const asAtcuteNsid = (nsid: Nsid): `${string}.${string}.${string}` =>
+  nsid as `${string}.${string}.${string}`;
+const asAtcuteRkey = (rkey: Rkey): string => rkey;
+
+export { ApiError, setTokenRefreshCallback };
 
 async function xrpcResult<T>(
   method: string,
@@ -333,6 +248,17 @@ export function castSession(raw: unknown): Session {
   };
 }
 
+export async function getSessionWithoutRefresh(
+  token: AccessToken,
+): Promise<Session> {
+  const raw = await unwrapAtcute<unknown>(
+    noRefreshClient.get("com.atproto.server.getSession", {
+      headers: withToken(token),
+    }),
+  );
+  return castSession(raw);
+}
+
 function castDelegationController(raw: unknown): DelegationController {
   const c = raw as Record<string, unknown>;
   return {
@@ -393,16 +319,9 @@ export const api = {
     params: CreateAccountParams,
     byodToken?: string,
   ): Promise<CreateAccountResult> {
-    const url = `${API_BASE}/com.atproto.server.createAccount`;
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (byodToken) {
-      headers["Authorization"] = `Bearer ${byodToken}`;
-    }
-    const response = await fetch(url, {
+    return mainApiTransport.requestXrpc("com.atproto.server.createAccount", {
       method: "POST",
-      headers,
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         handle: params.handle,
         email: params.email,
@@ -416,12 +335,10 @@ export const api = {
         telegramUsername: params.telegramUsername,
         signalUsername: params.signalUsername,
       }),
+      authentication: byodToken
+        ? { type: "bearer", token: byodToken }
+        : { type: "none" },
     });
-    const data = await response.json();
-    if (!response.ok) {
-      throw new ApiError(response.status, data.error, data.message);
-    }
-    return data;
   },
 
   async createAccountWithServiceAuth(
@@ -438,29 +355,25 @@ export const api = {
       signalUsername?: string;
     },
   ): Promise<Session> {
-    const url = `${API_BASE}/com.atproto.server.createAccount`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${serviceAuthToken}`,
+    const data = await mainApiTransport.requestXrpc<unknown>(
+      "com.atproto.server.createAccount",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          did: params.did,
+          handle: params.handle,
+          email: params.email,
+          password: params.password,
+          inviteCode: params.inviteCode,
+          verificationChannel: params.verificationChannel,
+          discordUsername: params.discordUsername,
+          telegramUsername: params.telegramUsername,
+          signalUsername: params.signalUsername,
+        }),
+        authentication: { type: "bearer", token: serviceAuthToken },
       },
-      body: JSON.stringify({
-        did: params.did,
-        handle: params.handle,
-        email: params.email,
-        password: params.password,
-        inviteCode: params.inviteCode,
-        verificationChannel: params.verificationChannel,
-        discordUsername: params.discordUsername,
-        telegramUsername: params.telegramUsername,
-        signalUsername: params.signalUsername,
-      }),
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      throw new ApiError(response.status, data.error, data.message);
-    }
+    );
     return castSession(data);
   },
 
@@ -482,10 +395,11 @@ export const api = {
   },
 
   async createSession(identifier: string, password: string): Promise<Session> {
-    const raw = await xrpc<unknown>("com.atproto.server.createSession", {
-      method: "POST",
-      body: { identifier, password },
-    });
+    const raw = await unwrapAtcute<unknown>(
+      client.post("com.atproto.server.createSession", {
+        input: { identifier, password },
+      }),
+    );
     return castSession(raw);
   },
 
@@ -514,27 +428,38 @@ export const api = {
   },
 
   async getSession(token: AccessToken): Promise<Session> {
-    const raw = await xrpc<unknown>("com.atproto.server.getSession", { token });
+    const raw = await unwrapAtcute<unknown>(
+      client.get("com.atproto.server.getSession", {
+        headers: withToken(token),
+      }),
+    );
     return castSession(raw);
   },
 
   async refreshSession(refreshJwt: RefreshToken): Promise<Session> {
-    const raw = await xrpc<unknown>("com.atproto.server.refreshSession", {
-      method: "POST",
-      token: refreshJwt,
-    });
+    const raw = await unwrapAtcute<unknown>(
+      noRefreshClient.post("com.atproto.server.refreshSession", {
+        headers: withToken(refreshJwt),
+      }),
+    );
     return castSession(raw);
   },
 
   async deleteSession(token: AccessToken): Promise<void> {
-    await xrpc("com.atproto.server.deleteSession", {
-      method: "POST",
-      token,
-    });
+    await unwrapAtcute(
+      client.post("com.atproto.server.deleteSession", {
+        headers: withToken(token),
+        as: null,
+      }),
+    );
   },
 
   listAppPasswords(token: AccessToken): Promise<{ passwords: AppPassword[] }> {
-    return xrpc("com.atproto.server.listAppPasswords", { token });
+    return unwrapAtcute(
+      client.get("com.atproto.server.listAppPasswords", {
+        headers: withToken(token),
+      }),
+    );
   },
 
   createAppPassword(
@@ -550,42 +475,54 @@ export const api = {
   },
 
   async revokeAppPassword(token: AccessToken, name: string): Promise<void> {
-    await xrpc("com.atproto.server.revokeAppPassword", {
-      method: "POST",
-      token,
-      body: { name },
-    });
+    await unwrapAtcute(
+      client.post("com.atproto.server.revokeAppPassword", {
+        headers: withToken(token),
+        input: { name },
+        as: null,
+      }),
+    );
   },
 
   getAccountInviteCodes(
     token: AccessToken,
   ): Promise<{ codes: InviteCodeInfo[] }> {
-    return xrpc("com.atproto.server.getAccountInviteCodes", { token });
+    return unwrapAtcute(
+      client.get("com.atproto.server.getAccountInviteCodes", {
+        headers: withToken(token),
+        params: {},
+      }),
+    );
   },
 
   createInviteCode(
     token: AccessToken,
     useCount: number = 1,
   ): Promise<{ code: string }> {
-    return xrpc("com.atproto.server.createInviteCode", {
-      method: "POST",
-      token,
-      body: { useCount },
-    });
+    return unwrapAtcute(
+      client.post("com.atproto.server.createInviteCode", {
+        headers: withToken(token),
+        input: { useCount },
+      }),
+    );
   },
 
   async requestPasswordReset(email: EmailAddress): Promise<void> {
-    await xrpc("com.atproto.server.requestPasswordReset", {
-      method: "POST",
-      body: { email },
-    });
+    await unwrapAtcute(
+      client.post("com.atproto.server.requestPasswordReset", {
+        input: { email },
+        as: null,
+      }),
+    );
   },
 
   async resetPassword(token: string, password: string): Promise<void> {
-    await xrpc("com.atproto.server.resetPassword", {
-      method: "POST",
-      body: { token, password },
-    });
+    await unwrapAtcute(
+      client.post("com.atproto.server.resetPassword", {
+        input: { token, password },
+        as: null,
+      }),
+    );
   },
 
   requestEmailUpdate(
@@ -604,11 +541,13 @@ export const api = {
     email: string,
     emailToken?: string,
   ): Promise<void> {
-    await xrpc("com.atproto.server.updateEmail", {
-      method: "POST",
-      token,
-      body: { email, token: emailToken },
-    });
+    await unwrapAtcute(
+      client.post("com.atproto.server.updateEmail", {
+        headers: withToken(token),
+        input: { email, token: emailToken },
+        as: null,
+      }),
+    );
   },
 
   checkEmailUpdateStatus(
@@ -621,18 +560,22 @@ export const api = {
   },
 
   async updateHandle(token: AccessToken, handle: Handle): Promise<void> {
-    await xrpc("com.atproto.identity.updateHandle", {
-      method: "POST",
-      token,
-      body: { handle },
-    });
+    await unwrapAtcute(
+      client.post("com.atproto.identity.updateHandle", {
+        headers: withToken(token),
+        input: { handle: asAtcuteHandle(handle) },
+        as: null,
+      }),
+    );
   },
 
   async requestAccountDelete(token: AccessToken): Promise<void> {
-    await xrpc("com.atproto.server.requestAccountDelete", {
-      method: "POST",
-      token,
-    });
+    await unwrapAtcute(
+      client.post("com.atproto.server.requestAccountDelete", {
+        headers: withToken(token),
+        as: null,
+      }),
+    );
   },
 
   async deleteAccount(
@@ -640,20 +583,22 @@ export const api = {
     password: string,
     deleteToken: string,
   ): Promise<void> {
-    await xrpc("com.atproto.server.deleteAccount", {
-      method: "POST",
-      body: { did, password, token: deleteToken },
-    });
+    await unwrapAtcute(
+      client.post("com.atproto.server.deleteAccount", {
+        input: { did: asAtcuteDid(did), password, token: deleteToken },
+        as: null,
+      }),
+    );
   },
 
   describeServer(): Promise<ServerDescription> {
-    return xrpc("com.atproto.server.describeServer");
+    return unwrapAtcute(client.get("com.atproto.server.describeServer"));
   },
 
   listRepos(limit?: number): Promise<ListReposResponse> {
-    const params: Record<string, string> = {};
-    if (limit) params.limit = String(limit);
-    return xrpc("com.atproto.sync.listRepos", { params });
+    return unwrapAtcute(
+      client.get("com.atproto.sync.listRepos", { params: { limit } }),
+    );
   },
 
   getNotificationPrefs(token: AccessToken): Promise<NotificationPrefs> {
@@ -737,20 +682,12 @@ export const api = {
     token: AccessToken,
     file: File,
   ): Promise<UploadBlobResponse> {
-    const res = await authenticatedFetch("/xrpc/com.atproto.repo.uploadBlob", {
-      method: "POST",
-      token,
-      headers: { "Content-Type": file.type },
-      body: file,
-    });
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({
-        error: "Unknown",
-        message: res.statusText,
-      }));
-      throw new ApiError(res.status, errData.error, errData.message);
-    }
-    return res.json();
+    return unwrapAtcute(
+      client.post("com.atproto.repo.uploadBlob", {
+        headers: { ...withToken(token), "Content-Type": file.type },
+        input: file,
+      }),
+    );
   },
 
   async changePassword(
@@ -855,11 +792,16 @@ export const api = {
       limit?: number;
     },
   ): Promise<GetInviteCodesResponse> {
-    const params: Record<string, string> = {};
-    if (options?.sort) params.sort = options.sort;
-    if (options?.cursor) params.cursor = options.cursor;
-    if (options?.limit) params.limit = String(options.limit);
-    return xrpc("com.atproto.admin.getInviteCodes", { token, params });
+    return unwrapAtcute(
+      client.get("com.atproto.admin.getInviteCodes", {
+        headers: withToken(token),
+        params: {
+          sort: options?.sort,
+          cursor: options?.cursor,
+          limit: options?.limit,
+        },
+      }),
+    );
   },
 
   async disableInviteCodes(
@@ -867,46 +809,64 @@ export const api = {
     codes?: string[],
     accounts?: string[],
   ): Promise<void> {
-    await xrpc("com.atproto.admin.disableInviteCodes", {
-      method: "POST",
-      token,
-      body: { codes, accounts },
-    });
+    await unwrapAtcute(
+      client.post("com.atproto.admin.disableInviteCodes", {
+        headers: withToken(token),
+        input: {
+          codes,
+          accounts: accounts?.map((did) => asAtcuteDid(unsafeAsDid(did))),
+        },
+        as: null,
+      }),
+    );
   },
 
   getAccountInfo(token: AccessToken, did: Did): Promise<AccountInfo> {
-    return xrpc("com.atproto.admin.getAccountInfo", { token, params: { did } });
+    return unwrapAtcute(
+      client.get("com.atproto.admin.getAccountInfo", {
+        headers: withToken(token),
+        params: { did: asAtcuteDid(did) },
+      }),
+    );
   },
 
   async disableAccountInvites(token: AccessToken, account: Did): Promise<void> {
-    await xrpc("com.atproto.admin.disableAccountInvites", {
-      method: "POST",
-      token,
-      body: { account },
-    });
+    await unwrapAtcute(
+      client.post("com.atproto.admin.disableAccountInvites", {
+        headers: withToken(token),
+        input: { account: asAtcuteDid(account) },
+        as: null,
+      }),
+    );
   },
 
   async enableAccountInvites(token: AccessToken, account: Did): Promise<void> {
-    await xrpc("com.atproto.admin.enableAccountInvites", {
-      method: "POST",
-      token,
-      body: { account },
-    });
+    await unwrapAtcute(
+      client.post("com.atproto.admin.enableAccountInvites", {
+        headers: withToken(token),
+        input: { account: asAtcuteDid(account) },
+        as: null,
+      }),
+    );
   },
 
   async adminDeleteAccount(token: AccessToken, did: Did): Promise<void> {
-    await xrpc("com.atproto.admin.deleteAccount", {
-      method: "POST",
-      token,
-      body: { did },
-    });
+    await unwrapAtcute(
+      client.post("com.atproto.admin.deleteAccount", {
+        headers: withToken(token),
+        input: { did: asAtcuteDid(did) },
+        as: null,
+      }),
+    );
   },
 
   describeRepo(token: AccessToken, repo: Did): Promise<RepoDescription> {
-    return xrpc("com.atproto.repo.describeRepo", {
-      token,
-      params: { repo },
-    });
+    return unwrapAtcute(
+      client.get("com.atproto.repo.describeRepo", {
+        headers: withToken(token),
+        params: { repo: asAtcuteDid(repo) },
+      }),
+    );
   },
 
   listRecords(
@@ -919,11 +879,18 @@ export const api = {
       reverse?: boolean;
     },
   ): Promise<ListRecordsResponse> {
-    const params: Record<string, string> = { repo, collection };
-    if (options?.limit) params.limit = String(options.limit);
-    if (options?.cursor) params.cursor = options.cursor;
-    if (options?.reverse) params.reverse = "true";
-    return xrpc("com.atproto.repo.listRecords", { token, params });
+    return unwrapAtcute(
+      client.get("com.atproto.repo.listRecords", {
+        headers: withToken(token),
+        params: {
+          repo: asAtcuteDid(repo),
+          collection: asAtcuteNsid(collection),
+          limit: options?.limit,
+          cursor: options?.cursor,
+          reverse: options?.reverse,
+        },
+      }),
+    );
   },
 
   getRecord(
@@ -932,10 +899,16 @@ export const api = {
     collection: Nsid,
     rkey: Rkey,
   ): Promise<RecordResponse> {
-    return xrpc("com.atproto.repo.getRecord", {
-      token,
-      params: { repo, collection, rkey },
-    });
+    return unwrapAtcute(
+      client.get("com.atproto.repo.getRecord", {
+        headers: withToken(token),
+        params: {
+          repo: asAtcuteDid(repo),
+          collection: asAtcuteNsid(collection),
+          rkey: asAtcuteRkey(rkey),
+        },
+      }),
+    );
   },
 
   createRecord(
@@ -945,11 +918,17 @@ export const api = {
     record: unknown,
     rkey?: Rkey,
   ): Promise<CreateRecordResponse> {
-    return xrpc("com.atproto.repo.createRecord", {
-      method: "POST",
-      token,
-      body: { repo, collection, record, rkey },
-    });
+    return unwrapAtcute(
+      client.post("com.atproto.repo.createRecord", {
+        headers: withToken(token),
+        input: {
+          repo: asAtcuteDid(repo),
+          collection: asAtcuteNsid(collection),
+          record: record as Record<string, unknown>,
+          rkey: rkey ? asAtcuteRkey(rkey) : undefined,
+        },
+      }),
+    );
   },
 
   putRecord(
@@ -959,11 +938,17 @@ export const api = {
     rkey: Rkey,
     record: unknown,
   ): Promise<CreateRecordResponse> {
-    return xrpc("com.atproto.repo.putRecord", {
-      method: "POST",
-      token,
-      body: { repo, collection, rkey, record },
-    });
+    return unwrapAtcute(
+      client.post("com.atproto.repo.putRecord", {
+        headers: withToken(token),
+        input: {
+          repo: asAtcuteDid(repo),
+          collection: asAtcuteNsid(collection),
+          rkey: asAtcuteRkey(rkey),
+          record: record as Record<string, unknown>,
+        },
+      }),
+    );
   },
 
   async deleteRecord(
@@ -972,11 +957,17 @@ export const api = {
     collection: Nsid,
     rkey: Rkey,
   ): Promise<void> {
-    await xrpc("com.atproto.repo.deleteRecord", {
-      method: "POST",
-      token,
-      body: { repo, collection, rkey },
-    });
+    await unwrapAtcute(
+      client.post("com.atproto.repo.deleteRecord", {
+        headers: withToken(token),
+        input: {
+          repo: asAtcuteDid(repo),
+          collection: asAtcuteNsid(collection),
+          rkey: asAtcuteRkey(rkey),
+        },
+        as: null,
+      }),
+    );
   },
 
   getTotpStatus(token: AccessToken): Promise<TotpStatus> {
@@ -1138,23 +1129,30 @@ export const api = {
   },
 
   reserveSigningKey(did?: Did): Promise<ReserveSigningKeyResponse> {
-    return xrpc("com.atproto.server.reserveSigningKey", {
-      method: "POST",
-      body: { did },
-    });
+    return unwrapAtcute(
+      client.post("com.atproto.server.reserveSigningKey", {
+        input: { did: did ? asAtcuteDid(did) : undefined },
+      }),
+    );
   },
 
   getRecommendedDidCredentials(
     token: AccessToken,
   ): Promise<RecommendedDidCredentials> {
-    return xrpc("com.atproto.identity.getRecommendedDidCredentials", { token });
+    return unwrapAtcute(
+      client.get("com.atproto.identity.getRecommendedDidCredentials", {
+        headers: withToken(token),
+      }),
+    );
   },
 
   async activateAccount(token: AccessToken): Promise<void> {
-    await xrpc("com.atproto.server.activateAccount", {
-      method: "POST",
-      token,
-    });
+    await unwrapAtcute(
+      client.post("com.atproto.server.activateAccount", {
+        headers: withToken(token),
+        as: null,
+      }),
+    );
   },
 
   async createPasskeyAccount(
@@ -1172,26 +1170,14 @@ export const api = {
     },
     byodToken?: string,
   ): Promise<PasskeyAccountCreateResponse> {
-    const url = `${API_BASE}/_account.createPasskeyAccount`;
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (byodToken) {
-      headers["Authorization"] = `Bearer ${byodToken}`;
-    }
-    const res = await fetch(url, {
+    return mainApiTransport.requestXrpc("_account.createPasskeyAccount", {
       method: "POST",
-      headers,
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(params),
+      authentication: byodToken
+        ? { type: "bearer", token: byodToken }
+        : { type: "none" },
     });
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({
-        error: "Unknown",
-        message: res.statusText,
-      }));
-      throw new ApiError(res.status, errData.error, errData.message);
-    }
-    return res.json();
   },
 
   startPasskeyRegistrationForSetup(
@@ -1290,77 +1276,70 @@ export const api = {
     token: AccessToken,
     deleteAfter?: string,
   ): Promise<void> {
-    await xrpc("com.atproto.server.deactivateAccount", {
-      method: "POST",
-      token,
-      body: { deleteAfter },
-    });
+    await unwrapAtcute(
+      client.post("com.atproto.server.deactivateAccount", {
+        headers: withToken(token),
+        input: { deleteAfter },
+        as: null,
+      }),
+    );
+  },
+
+  resolveHandle(handle: string): Promise<{ did: Did }> {
+    return unwrapAtcute(
+      client.get("com.atproto.identity.resolveHandle", {
+        params: { handle: asAtcuteHandle(handle) },
+      }),
+    );
   },
 
   async getRepo(token: AccessToken, did: Did): Promise<ArrayBuffer> {
-    const url = `${API_BASE}/com.atproto.sync.getRepo?did=${encodeURIComponent(
-      did,
-    )}`;
-    const res = await authenticatedFetch(url, { token });
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({
-        error: "Unknown",
-        message: res.statusText,
-      }));
-      throw new ApiError(res.status, errData.error, errData.message);
-    }
-    return res.arrayBuffer();
+    const bytes = await unwrapAtcute<Uint8Array>(
+      client.get("com.atproto.sync.getRepo", {
+        headers: withToken(token),
+        params: { did: asAtcuteDid(did) },
+        as: "bytes",
+      }),
+    );
+    return bytes.buffer.slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength,
+    ) as ArrayBuffer;
   },
 
   async importRepo(token: AccessToken, car: Uint8Array): Promise<void> {
-    const res = await authenticatedFetch(
-      `${API_BASE}/com.atproto.repo.importRepo`,
-      {
-        method: "POST",
-        token,
-        headers: { "Content-Type": "application/vnd.ipld.car" },
-        body: car as unknown as BodyInit,
-      },
+    await unwrapAtcute(
+      client.post("com.atproto.repo.importRepo", {
+        headers: {
+          ...withToken(token),
+          "Content-Type": "application/vnd.ipld.car",
+        },
+        input: car,
+        as: null,
+      }),
     );
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({
-        error: "Unknown",
-        message: res.statusText,
-      }));
-      throw new ApiError(res.status, errData.error, errData.message);
-    }
   },
 
   async establishOAuthSession(
     token: AccessToken,
   ): Promise<{ success: boolean; device_id: string }> {
-    const res = await authenticatedFetch("/oauth/establish-session", {
+    return mainApiTransport.requestJson("/oauth/establish-session", {
       method: "POST",
-      token,
       headers: { "Content-Type": "application/json" },
+      authentication: { type: "refreshable-dpop", token },
+      retryNonce: false,
+      retryExpiredToken: false,
     });
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({
-        error: "Unknown",
-        message: res.statusText,
-      }));
-      throw new ApiError(res.status, errData.error, errData.message);
-    }
-    return res.json();
   },
 
   async getSsoLinkedAccounts(
     token: AccessToken,
   ): Promise<{ accounts: SsoLinkedAccount[] }> {
-    const res = await authenticatedFetch("/oauth/sso/linked", { token });
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({
-        error: "Unknown",
-        message: res.statusText,
-      }));
-      throw new ApiError(res.status, errData.error, errData.message);
-    }
-    return res.json();
+    return mainApiTransport.requestJson("/oauth/sso/linked", {
+      authentication: { type: "refreshable-dpop", token },
+      retryNonce: false,
+      retryExpiredToken: false,
+    });
   },
 
   async initiateSsoLink(
@@ -1368,54 +1347,59 @@ export const api = {
     provider: string,
     requestUri: string,
   ): Promise<{ redirect_url: string }> {
-    const res = await authenticatedFetch("/oauth/sso/initiate", {
+    return mainApiTransport.requestJson("/oauth/sso/initiate", {
       method: "POST",
-      token,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         provider,
         request_uri: requestUri,
         action: "link",
       }),
+      authentication: { type: "refreshable-dpop", token },
+      retryNonce: false,
+      retryExpiredToken: false,
     });
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({
-        error: "Unknown",
-        message: res.statusText,
-      }));
-      throw new ApiError(
-        res.status,
-        errData.error,
-        errData.error_description ?? errData.message,
-        errData.reauthMethods,
-      );
-    }
-    return res.json();
   },
 
   async unlinkSsoAccount(
     token: AccessToken,
     id: string,
   ): Promise<{ success: boolean }> {
-    const res = await authenticatedFetch("/oauth/sso/unlink", {
+    return mainApiTransport.requestJson("/oauth/sso/unlink", {
       method: "POST",
-      token,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
+      authentication: { type: "refreshable-dpop", token },
+      retryNonce: false,
+      retryExpiredToken: false,
     });
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({
-        error: "Unknown",
-        message: res.statusText,
-      }));
-      throw new ApiError(
-        res.status,
-        errData.error,
-        errData.error_description ?? errData.message,
-        errData.reauthMethods,
-      );
+  },
+
+  async authorizeDelegatedSession(
+    accessToken: AccessToken,
+    requestUri: string,
+    delegatedDid: Did,
+  ): Promise<{ success: true; redirect_uri: string }> {
+    const result = await mainApiTransport.requestJson<{
+      success?: boolean;
+      redirect_uri?: string;
+      error?: string;
+    }>("/oauth/delegation/auth-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        request_uri: requestUri,
+        delegated_did: delegatedDid,
+      }),
+      authentication: { type: "dpop", token: accessToken },
+      retryNonce: true,
+      retryNonceOnAnyFailure: true,
+      retryExpiredToken: false,
+    });
+    if (!result.success || !result.redirect_uri) {
+      throw new Error(result.error ?? "Could not start delegated sign-in.");
     }
-    return res.json();
+    return { success: true, redirect_uri: result.redirect_uri };
   },
 
   async listDelegationControllers(

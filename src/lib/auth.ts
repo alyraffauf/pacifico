@@ -1,4 +1,4 @@
-import { api, ApiError, castSession } from "./api.ts";
+import { api, ApiError, castSession, getSessionWithoutRefresh } from "./api.ts";
 import type {
   CreateAccountParams,
   CreateAccountResult,
@@ -283,7 +283,7 @@ async function tryRefreshToken(): Promise<AccessToken | null> {
   const currentSession = state.current.session;
   try {
     const tokens = await refreshOAuthToken(currentSession.refreshJwt);
-    const sessionInfo = await api.getSession(
+    const sessionInfo = await getSessionWithoutRefresh(
       unsafeAsAccessToken(tokens.access_token),
     );
     const session: Session = {
@@ -353,7 +353,7 @@ export async function initAuth(): Promise<{ oauthLoginCompleted: boolean }> {
       if (e instanceof ApiError && e.status === 401) {
         try {
           const tokens = await refreshOAuthToken(stored.refreshJwt);
-          const sessionInfo = await api.getSession(
+          const sessionInfo = await getSessionWithoutRefresh(
             unsafeAsAccessToken(tokens.access_token),
           );
           const session: Session = {
@@ -517,7 +517,7 @@ export async function switchAccount(
     if (e instanceof ApiError && e.status === 401) {
       try {
         const tokens = await refreshOAuthToken(account.refreshJwt);
-        const sessionInfo = await api.getSession(
+        const sessionInfo = await getSessionWithoutRefresh(
           unsafeAsAccessToken(tokens.access_token),
         );
         const session: Session = {
@@ -601,7 +601,7 @@ export async function getValidToken(): Promise<AccessToken | null> {
     if (e instanceof ApiError && e.status === 401) {
       try {
         const tokens = await refreshOAuthToken(currentSession.refreshJwt);
-        const sessionInfo = await api.getSession(
+        const sessionInfo = await getSessionWithoutRefresh(
           unsafeAsAccessToken(tokens.access_token),
         );
         const session: Session = {
