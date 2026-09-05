@@ -7,7 +7,31 @@ on:
     branches: [main]
 
 jobs:
+  quality:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check code quality
+        run: bun run check
+
+      - name: Run tests
+        run: bun run test
+
   build:
+    needs: quality
     runs-on: ubuntu-latest
     permissions:
       contents: read

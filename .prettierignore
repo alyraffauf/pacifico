@@ -1,0 +1,7 @@
+LICENSE.md
+bun.lock
+dist/
+node_modules/
+public/fonts/
+public/*.png
+
