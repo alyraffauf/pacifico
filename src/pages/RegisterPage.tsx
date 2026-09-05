@@ -263,7 +263,7 @@ export function RegisterPage() {
         setReservedKey(result.signingKey);
         publicKey = result.signingKey.replace("did:key:", "");
       } else {
-        const result = generateKeypair();
+        const result = await generateKeypair();
         setPrivateKey(result.privateKey);
         publicKey = result.publicKeyMultibase;
       }

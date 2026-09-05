@@ -1,7 +1,4 @@
-import * as secp from "@noble/secp256k1";
-import { base58btc } from "multiformats/bases/base58";
-
-const SECP256K1_MULTICODEC_PREFIX = new Uint8Array([0xe7, 0x01]);
+import { Secp256k1PrivateKeyExportable } from "@atcute/crypto";
 
 export interface Keypair {
   privateKey: Uint8Array;
@@ -10,18 +7,12 @@ export interface Keypair {
   publicKeyDidKey: string;
 }
 
-export function generateKeypair(): Keypair {
-  const privateKey = secp.utils.randomSecretKey();
-  const publicKey = secp.getPublicKey(privateKey, true);
-
-  const multicodecKey = new Uint8Array(
-    SECP256K1_MULTICODEC_PREFIX.length + publicKey.length,
-  );
-  multicodecKey.set(SECP256K1_MULTICODEC_PREFIX, 0);
-  multicodecKey.set(publicKey, SECP256K1_MULTICODEC_PREFIX.length);
-
-  const publicKeyMultibase = base58btc.encode(multicodecKey);
-  const publicKeyDidKey = `did:key:${publicKeyMultibase}`;
+export async function generateKeypair(): Promise<Keypair> {
+  const keypair = await Secp256k1PrivateKeyExportable.createKeypair();
+  const privateKey = await keypair.exportPrivateKey("raw");
+  const publicKey = await keypair.exportPublicKey("raw");
+  const publicKeyMultibase = await keypair.exportPublicKey("multikey");
+  const publicKeyDidKey = await keypair.exportPublicKey("did");
 
   return {
     privateKey,
@@ -65,12 +56,8 @@ export async function createServiceJwt(
   const payloadEncoded = base64UrlEncode(JSON.stringify(payload));
   const message = `${headerEncoded}.${payloadEncoded}`;
 
-  const msgBytes = new TextEncoder().encode(message);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", msgBytes);
-  const msgHash = new Uint8Array(hashBuffer);
-  const sigBytes = await secp.signAsync(msgHash, privateKey, {
-    prehash: false,
-  });
+  const keypair = await Secp256k1PrivateKeyExportable.importRaw(privateKey);
+  const sigBytes = await keypair.sign(new TextEncoder().encode(message));
   const signatureEncoded = base64UrlEncode(sigBytes);
 
   return `${message}.${signatureEncoded}`;
