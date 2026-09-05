@@ -1,5 +1,8 @@
 export * from "./types.ts";
 export * from "./atproto-client.ts";
+export * from "./dpop.ts";
+export * from "./oauth.ts";
+export * from "./identity.ts";
 export * from "./storage.ts";
 export * from "./blob-migration.ts";
 export {
