@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { initializeI18n, setLocale, translate } from "./i18n.ts";
+import {
+  initializeI18n,
+  setLocale,
+  supportedLocales,
+  translate,
+} from "./i18n.ts";
 
 describe("i18n", () => {
   afterEach(async () => {
@@ -16,4 +21,17 @@ describe("i18n", () => {
       translate("inviteCodes.disableConfirm", { code: "invite-1" }),
     ).toContain("invite-1");
   });
+
+  it.each(supportedLocales)(
+    "renders the General subtitle without a key or placeholder in %s",
+    async (locale) => {
+      localStorage.setItem("tranquil-pds-locale", locale);
+      await initializeI18n();
+
+      const subtitle = translate("settings.subtitle");
+
+      expect(subtitle).not.toBe("settings.subtitle");
+      expect(subtitle).not.toMatch(/[{}]/);
+    },
+  );
 });

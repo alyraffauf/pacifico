@@ -1,11 +1,22 @@
-import type { Dispatch, FormEventHandler, SetStateAction } from "react";
+import { IconCheck, IconCopy } from "@tabler/icons-react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type FormEventHandler,
+  type SetStateAction,
+} from "react";
 import {
   Alert,
   Button,
-  Card,
   Field,
   Input,
+  SegmentedControl,
   Select,
+  SettingsRow,
+  SettingsSection,
+  SettingsSwitch,
 } from "../../components/ui.tsx";
 import {
   localeNames,
@@ -15,46 +26,14 @@ import {
 } from "../../lib/i18n.ts";
 
 type Translate = ReturnType<typeof useTranslation>;
+export type SettingsEditor = "handle" | "email" | null;
 
-export function SettingsSections({
-  t,
-  sessionHandle,
-  sessionDid,
-  sessionEmail,
-  customHandle,
-  setCustomHandle,
-  handle,
-  setHandle,
-  selectedDomain,
-  setSelectedDomain,
-  availableDomains,
-  saving,
-  canSaveHandle,
-  saveHandle,
-  email,
-  changeEmailInput,
-  emailInUse,
-  emailToken,
-  setEmailToken,
-  emailTokenRequired,
-  emailUpdateAuthorized,
-  checkEmailAvailability,
-  saveEmail,
-  clearEmailUpdate,
-  locale,
-  changeLocale,
-  legacyLogin,
-  changeLegacyLogin,
-  hasMfa,
-  deleteRequested,
-  deleteToken,
-  setDeleteToken,
-  deletePassword,
-  setDeletePassword,
-  requestDelete,
-  deleteAccount,
-}: {
+type SettingsSectionsProps = {
   t: Translate;
+  activeEditor: SettingsEditor;
+  setActiveEditor: Dispatch<SetStateAction<SettingsEditor>>;
+  cancelHandleEditor: () => void;
+  cancelEmailEditor: () => void;
   sessionHandle: string;
   sessionDid: string;
   sessionEmail?: string;
@@ -77,7 +56,6 @@ export function SettingsSections({
   emailUpdateAuthorized: boolean;
   checkEmailAvailability: () => Promise<void>;
   saveEmail: FormEventHandler<HTMLFormElement>;
-  clearEmailUpdate: () => void;
   locale: SupportedLocale;
   changeLocale: (locale: SupportedLocale) => Promise<void>;
   legacyLogin: boolean;
@@ -90,254 +68,408 @@ export function SettingsSections({
   setDeletePassword: Dispatch<SetStateAction<string>>;
   requestDelete: () => Promise<void>;
   deleteAccount: FormEventHandler<HTMLFormElement>;
-}) {
+};
+
+export function SettingsSections({
+  t,
+  activeEditor,
+  setActiveEditor,
+  cancelHandleEditor,
+  cancelEmailEditor,
+  sessionHandle,
+  sessionDid,
+  sessionEmail,
+  customHandle,
+  setCustomHandle,
+  handle,
+  setHandle,
+  selectedDomain,
+  setSelectedDomain,
+  availableDomains,
+  saving,
+  canSaveHandle,
+  saveHandle,
+  email,
+  changeEmailInput,
+  emailInUse,
+  emailToken,
+  setEmailToken,
+  emailTokenRequired,
+  emailUpdateAuthorized,
+  checkEmailAvailability,
+  saveEmail,
+  locale,
+  changeLocale,
+  legacyLogin,
+  changeLegacyLogin,
+  hasMfa,
+  deleteRequested,
+  deleteToken,
+  setDeleteToken,
+  deletePassword,
+  setDeletePassword,
+  requestDelete,
+  deleteAccount,
+}: SettingsSectionsProps) {
+  const [didCopied, setDidCopied] = useState(false);
+  const copyFeedbackTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const handleInput = useRef<HTMLInputElement>(null);
+  const emailInput = useRef<HTMLInputElement>(null);
+  const deleteTokenInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => () => clearTimeout(copyFeedbackTimeout.current), []);
+
+  useEffect(() => {
+    if (activeEditor === "handle") handleInput.current?.focus();
+    if (activeEditor === "email") emailInput.current?.focus();
+  }, [activeEditor]);
+
+  useEffect(() => {
+    if (deleteRequested) deleteTokenInput.current?.focus();
+  }, [deleteRequested]);
+
+  async function copyDid() {
+    try {
+      await navigator.clipboard.writeText(sessionDid);
+      setDidCopied(true);
+      clearTimeout(copyFeedbackTimeout.current);
+      copyFeedbackTimeout.current = setTimeout(() => setDidCopied(false), 2000);
+    } catch {
+      setDidCopied(false);
+    }
+  }
+
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
-      <Card className="p-5">
-        <h2 className="font-mono font-semibold text-ctp-text">
-          {t("settings.changeHandle")}
-        </h2>
-        <p className="mt-1 text-sm text-ctp-subtext0">
-          {t("settings.currentHandle", { handle: sessionHandle })}
-        </p>
-        <p className="mt-1 text-sm text-ctp-subtext0">
-          Your DID remains the same when the handle changes.
-        </p>
-        <div className="mt-5 flex gap-2">
-          <Button
-            type="button"
-            variant={customHandle ? "ghost" : "secondary"}
-            onClick={() => setCustomHandle(false)}
-          >
-            {t("settings.pdsHandle")}
-          </Button>
-          <Button
-            type="button"
-            variant={customHandle ? "secondary" : "ghost"}
-            onClick={() => setCustomHandle(true)}
-          >
-            {t("settings.customDomain")}
-          </Button>
-        </div>
-        {customHandle ? (
-          <div className="mt-4 rounded border border-ctp-surface1 bg-ctp-crust p-4 text-xs leading-5 text-ctp-subtext0">
-            <p>{t("settings.setupMethodsIntro")}</p>
-            <code className="mt-2 block break-all text-ctp-lavender">
-              _atproto.{handle || "your-domain.example"} TXT &quot;did=
-              {sessionDid}&quot;
-            </code>
-            <code className="mt-2 block break-all text-ctp-lavender">
-              https://{handle || "your-domain.example"}
-              /.well-known/atproto-did
-            </code>
-          </div>
-        ) : null}
-        <form className="mt-4 grid gap-4" onSubmit={saveHandle}>
-          {customHandle ? (
-            <Field label={t("settings.yourDomain")}>
-              <Input
-                value={handle}
-                onChange={(event) => setHandle(event.target.value)}
-                autoComplete="username"
-                placeholder={t("settings.yourDomainPlaceholder")}
-              />
-            </Field>
-          ) : (
-            <Field label={t("settings.newHandle")}>
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                <Input
-                  value={handle}
-                  onChange={(event) => setHandle(event.target.value)}
-                  autoComplete="username"
-                />
-                <Select
-                  value={selectedDomain}
-                  onChange={(event) => setSelectedDomain(event.target.value)}
-                  disabled={availableDomains.length === 0}
-                >
-                  {availableDomains.map((domain) => (
-                    <option key={domain} value={domain}>
-                      .{domain}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-            </Field>
-          )}
-          <Button
-            className="justify-self-start"
-            disabled={saving || !canSaveHandle}
-          >
-            {customHandle
-              ? t("settings.verifyAndUpdate")
-              : t("settings.changeHandleButton")}
-          </Button>
-        </form>
-        <dl className="mt-6 border-t border-ctp-surface0 pt-4 text-sm">
-          <dt className="text-ctp-overlay1">DID</dt>
-          <dd className="mt-1 font-mono text-xs break-all text-ctp-subtext1">
-            {sessionDid}
-          </dd>
-        </dl>
-      </Card>
-      <Card className="p-5">
-        <h2 className="font-mono font-semibold text-ctp-text">
-          {t("settings.changeEmail")}
-        </h2>
-        {sessionEmail ? (
-          <p className="mt-3 text-xs text-ctp-overlay1">
-            {t("settings.currentEmail", {
-              email: sessionEmail ?? "",
-            })}
-          </p>
-        ) : null}
-        <form className="mt-5 grid gap-4" onSubmit={saveEmail}>
-          <Field label={t("settings.newEmail")}>
-            <Input
-              type="email"
-              value={email}
-              onChange={(event) => changeEmailInput(event.target.value)}
-              onBlur={() => void checkEmailAvailability()}
-              autoComplete="email"
-              disabled={saving || emailUpdateAuthorized}
-              required
-            />
-            {emailInUse ? (
-              <span className="mt-1 block text-xs text-ctp-yellow">
-                {t("settings.emailInUseWarning")}
-              </span>
-            ) : null}
-          </Field>
-          {emailTokenRequired && !emailUpdateAuthorized ? (
-            <Field label={t("settings.confirmationCode")}>
-              <Input
-                value={emailToken}
-                onChange={(event) => setEmailToken(event.target.value)}
-                autoComplete="one-time-code"
-                required
-              />
-            </Field>
-          ) : null}
-          {emailUpdateAuthorized ? (
-            <Alert tone="success">{t("settings.emailUpdateAuthorized")}</Alert>
-          ) : null}
-          <div className="flex flex-wrap gap-2">
+    <div className="grid gap-6">
+      <SettingsSection title={t("settings.identity")}>
+        <SettingsRow
+          label={t("settings.handle")}
+          value={`@${sessionHandle}`}
+          technical
+          action={
             <Button
-              disabled={
-                saving ||
-                !email.trim() ||
-                (emailTokenRequired &&
-                  !emailUpdateAuthorized &&
-                  !emailToken.trim())
-              }
+              type="button"
+              variant="ghost"
+              size="compact"
+              aria-controls="settings-handle-editor"
+              aria-expanded={activeEditor === "handle"}
+              onClick={() => setActiveEditor("handle")}
             >
-              {emailTokenRequired
-                ? t("settings.confirmEmailChange")
-                : t("settings.changeEmailButton")}
+              {t("settings.changeHandleButton")}
             </Button>
-            {emailTokenRequired ? (
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={saving}
-                onClick={clearEmailUpdate}
-              >
-                {t("common.cancel")}
-              </Button>
-            ) : null}
-          </div>
-        </form>
-      </Card>
-      <Card className="p-5">
-        <h2 className="font-mono font-semibold text-ctp-text">
-          {t("settings.language")}
-        </h2>
-        <div className="mt-5 grid gap-5">
-          <Field label={t("settings.language")}>
-            <Select
-              value={locale}
-              disabled={saving}
-              onChange={(event) =>
-                void changeLocale(event.target.value as SupportedLocale)
-              }
+          }
+        >
+          {activeEditor === "handle" ? (
+            <form
+              id="settings-handle-editor"
+              className="grid gap-4"
+              onSubmit={saveHandle}
             >
-              {supportedLocales.map((item) => (
-                <option key={item} value={item}>
-                  {localeNames[item]}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <div className="flex items-start gap-3 rounded border border-ctp-surface1 p-4">
-            <input
-              id="legacy-login"
-              aria-labelledby="legacy-login-label legacy-login-description"
-              className="mt-1 size-4 accent-ctp-lavender"
-              type="checkbox"
+              <p className="text-xs leading-5 text-ctp-overlay1">
+                {t("settings.didUnchanged")}
+              </p>
+              <SegmentedControl
+                label={t("settings.handle")}
+                value={customHandle ? "custom" : "pds"}
+                choices={[
+                  { value: "pds", label: t("settings.pdsHandle") },
+                  { value: "custom", label: t("settings.customDomain") },
+                ]}
+                disabled={saving}
+                onChange={(next) => setCustomHandle(next === "custom")}
+              />
+              {customHandle ? (
+                <div className="rounded border border-ctp-surface1 bg-ctp-crust p-4 text-xs leading-5 text-ctp-subtext0">
+                  <p>{t("settings.setupMethodsIntro")}</p>
+                  <code className="mt-2 block break-all text-ctp-lavender">
+                    _atproto.{handle || "your-domain.example"} TXT &quot;did=
+                    {sessionDid}&quot;
+                  </code>
+                  <code className="mt-2 block break-all text-ctp-lavender">
+                    https://{handle || "your-domain.example"}
+                    /.well-known/atproto-did
+                  </code>
+                </div>
+              ) : null}
+              {customHandle ? (
+                <Field label={t("settings.yourDomain")}>
+                  <Input
+                    ref={handleInput}
+                    value={handle}
+                    onChange={(event) => setHandle(event.target.value)}
+                    autoComplete="username"
+                    placeholder={t("settings.yourDomainPlaceholder")}
+                    disabled={saving}
+                    required
+                  />
+                </Field>
+              ) : (
+                <div className="grid gap-2">
+                  <label
+                    htmlFor="settings-handle"
+                    className="font-mono text-sm font-semibold text-ctp-subtext1"
+                  >
+                    {t("settings.newHandle")}
+                  </label>
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                    <Input
+                      id="settings-handle"
+                      ref={handleInput}
+                      value={handle}
+                      onChange={(event) => setHandle(event.target.value)}
+                      autoComplete="username"
+                      placeholder={t("settings.newHandlePlaceholder")}
+                      disabled={saving}
+                      required
+                    />
+                    <Select
+                      aria-label={t("settings.domainSuffix")}
+                      value={selectedDomain}
+                      onChange={(event) =>
+                        setSelectedDomain(event.target.value)
+                      }
+                      disabled={saving || availableDomains.length === 0}
+                    >
+                      {availableDomains.map((domain) => (
+                        <option key={domain} value={domain}>
+                          .{domain}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button disabled={saving || !canSaveHandle}>
+                  {customHandle
+                    ? t("settings.verifyAndUpdate")
+                    : t("settings.changeHandleButton")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={saving}
+                  onClick={cancelHandleEditor}
+                >
+                  {t("common.cancel")}
+                </Button>
+              </div>
+            </form>
+          ) : null}
+        </SettingsRow>
+
+        <SettingsRow
+          label={t("settings.email")}
+          value={sessionEmail || t("settings.notSet")}
+          action={
+            <Button
+              type="button"
+              variant="ghost"
+              size="compact"
+              aria-controls="settings-email-editor"
+              aria-expanded={activeEditor === "email"}
+              onClick={() => setActiveEditor("email")}
+            >
+              {t("settings.changeEmailButton")}
+            </Button>
+          }
+        >
+          {activeEditor === "email" ? (
+            <form
+              id="settings-email-editor"
+              className="grid gap-4"
+              onSubmit={saveEmail}
+            >
+              <Field label={t("settings.newEmail")}>
+                <Input
+                  ref={emailInput}
+                  type="email"
+                  value={email}
+                  onChange={(event) => changeEmailInput(event.target.value)}
+                  onBlur={() => void checkEmailAvailability()}
+                  autoComplete="email"
+                  placeholder={t("settings.newEmailPlaceholder")}
+                  disabled={saving || emailUpdateAuthorized}
+                  required
+                />
+                {emailInUse ? (
+                  <output className="mt-1 block text-xs text-ctp-yellow">
+                    {t("settings.emailInUseWarning")}
+                  </output>
+                ) : null}
+              </Field>
+              {emailTokenRequired && !emailUpdateAuthorized ? (
+                <Field
+                  label={t("settings.confirmationCode")}
+                  hint={t("settings.emailTokenHint")}
+                >
+                  <Input
+                    value={emailToken}
+                    onChange={(event) => setEmailToken(event.target.value)}
+                    autoComplete="one-time-code"
+                    placeholder={t("settings.confirmationCodePlaceholder")}
+                    disabled={saving}
+                    required
+                  />
+                </Field>
+              ) : null}
+              {emailUpdateAuthorized ? (
+                <Alert tone="success">
+                  {t("settings.emailUpdateAuthorized")}
+                </Alert>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  disabled={
+                    saving ||
+                    !email.trim() ||
+                    (emailTokenRequired &&
+                      !emailUpdateAuthorized &&
+                      !emailToken.trim())
+                  }
+                >
+                  {emailTokenRequired
+                    ? t("settings.confirmEmailChange")
+                    : t("settings.changeEmailButton")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={saving}
+                  onClick={cancelEmailEditor}
+                >
+                  {t("common.cancel")}
+                </Button>
+              </div>
+            </form>
+          ) : null}
+        </SettingsRow>
+
+        <SettingsRow
+          label="DID"
+          technical
+          value={
+            <>
+              <span className="text-xs break-all">{sessionDid}</span>
+              <span className="sr-only" aria-live="polite">
+                {didCopied ? t("settings.didCopied") : ""}
+              </span>
+            </>
+          }
+          action={
+            <Button
+              type="button"
+              variant="ghost"
+              size="compact"
+              onClick={() => void copyDid()}
+            >
+              {didCopied ? (
+                <IconCheck className="size-4" aria-hidden="true" />
+              ) : (
+                <IconCopy className="size-4" aria-hidden="true" />
+              )}
+              {didCopied ? t("common.copied") : t("common.copyToClipboard")}
+            </Button>
+          }
+        />
+      </SettingsSection>
+
+      <SettingsSection title={t("settings.preferences")}>
+        <SettingsRow
+          label={t("settings.language")}
+          value={
+            <div className="max-w-64">
+              <Select
+                compact
+                aria-label={t("settings.language")}
+                value={locale}
+                disabled={saving}
+                onChange={(event) =>
+                  void changeLocale(event.target.value as SupportedLocale)
+                }
+              >
+                {supportedLocales.map((item) => (
+                  <option key={item} value={item}>
+                    {localeNames[item]}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          }
+        />
+        <SettingsRow
+          label={t("settings.passwordSignIn")}
+          value={legacyLogin ? t("settings.enabled") : t("settings.disabled")}
+          description={
+            <>
+              {t("settings.legacySecurityDescription")}
+              {!hasMfa ? (
+                <span className="mt-1 block text-ctp-yellow">
+                  {t("settings.legacyMfaRequired")}
+                </span>
+              ) : null}
+            </>
+          }
+          action={
+            <SettingsSwitch
+              label={t("settings.passwordSignIn")}
               checked={legacyLogin}
               disabled={saving || !hasMfa}
-              onChange={(event) => void changeLegacyLogin(event.target.checked)}
+              onCheckedChange={(checked) => void changeLegacyLogin(checked)}
             />
-            <span>
-              <span
-                id="legacy-login-label"
-                className="block text-sm font-medium text-ctp-text"
+          }
+        />
+      </SettingsSection>
+
+      <SettingsSection
+        title={t("settings.dangerZone")}
+        description={t("settings.deleteWarning")}
+        tone="danger"
+      >
+        <div className="px-4 py-3.5 sm:px-5">
+          {deleteRequested ? (
+            <form className="grid gap-4" onSubmit={deleteAccount}>
+              <Field label={t("settings.confirmationCode")}>
+                <Input
+                  ref={deleteTokenInput}
+                  value={deleteToken}
+                  onChange={(event) => setDeleteToken(event.target.value)}
+                  autoComplete="one-time-code"
+                  placeholder={t("settings.confirmationCodePlaceholder")}
+                  disabled={saving}
+                  required
+                />
+              </Field>
+              <Field label={t("settings.yourPassword")}>
+                <Input
+                  type="password"
+                  value={deletePassword}
+                  onChange={(event) => setDeletePassword(event.target.value)}
+                  autoComplete="current-password"
+                  placeholder={t("settings.yourPasswordPlaceholder")}
+                  disabled={saving}
+                  required
+                />
+              </Field>
+              <Button
+                variant="dangerOutline"
+                className="justify-self-start"
+                disabled={saving || !deleteToken.trim() || !deletePassword}
               >
-                {t("security.legacyLogin")}
-              </span>
-              <span
-                id="legacy-login-description"
-                className="mt-1 block text-xs leading-5 text-ctp-overlay1"
-              >
-                {t("security.legacyLoginDescription")}
-              </span>
-            </span>
-          </div>
-        </div>
-      </Card>
-      <Card className="border-ctp-red/40 p-5">
-        <h2 className="font-mono font-semibold text-ctp-red">Delete account</h2>
-        <p className="mt-1 text-sm text-ctp-subtext0">
-          Permanently removes the account and repository.
-        </p>
-        {deleteRequested ? (
-          <form className="mt-5 grid gap-4" onSubmit={deleteAccount}>
-            <Field label="Deletion code">
-              <Input
-                value={deleteToken}
-                onChange={(event) => setDeleteToken(event.target.value)}
-                autoComplete="one-time-code"
-                required
-              />
-            </Field>
-            <Field label="Password">
-              <Input
-                type="password"
-                value={deletePassword}
-                onChange={(event) => setDeletePassword(event.target.value)}
-                autoComplete="current-password"
-                required
-              />
-            </Field>
+                {t("settings.permanentlyDelete")}
+              </Button>
+            </form>
+          ) : (
             <Button
-              variant="danger"
-              className="justify-self-start"
-              disabled={saving || !deleteToken.trim() || !deletePassword}
+              variant="dangerOutline"
+              disabled={saving}
+              onClick={() => void requestDelete()}
             >
-              Delete permanently
+              {t("settings.requestDeletion")}
             </Button>
-          </form>
-        ) : (
-          <Button
-            variant="danger"
-            className="mt-5"
-            disabled={saving}
-            onClick={() => void requestDelete()}
-          >
-            Request deletion code
-          </Button>
-        )}
-      </Card>
+          )}
+        </div>
+      </SettingsSection>
     </div>
   );
 }

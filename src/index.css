@@ -1,3 +1,4 @@
+@import "@fontsource-variable/inter";
 @import "tailwindcss";
 @import "@catppuccin/tailwindcss/mocha.css";
 
@@ -8,12 +9,17 @@
 }
 
 @theme inline {
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Caskaydia Cove", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 @layer base {
   :root {
     color-scheme: dark;
+  }
+
+  body {
+    font-family: var(--font-sans);
   }
 
   a {

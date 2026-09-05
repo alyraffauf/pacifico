@@ -1,12 +1,13 @@
 import type {
   ButtonHTMLAttributes,
+  ComponentPropsWithRef,
   HTMLAttributes,
-  InputHTMLAttributes,
   ReactNode,
   SelectHTMLAttributes,
   TableHTMLAttributes,
   TextareaHTMLAttributes,
 } from "react";
+import { useId } from "react";
 import { IconLoader2 } from "@tabler/icons-react";
 
 function joinClasses(
@@ -15,7 +16,9 @@ function joinClasses(
   return classes.filter(Boolean).join(" ");
 }
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+type ButtonVariant =
+  "primary" | "secondary" | "ghost" | "danger" | "dangerOutline";
+type ButtonSize = "default" | "compact";
 
 const buttonVariants: Record<ButtonVariant, string> = {
   primary:
@@ -26,14 +29,20 @@ const buttonVariants: Record<ButtonVariant, string> = {
     "border-transparent bg-transparent text-ctp-subtext1 hover:bg-ctp-surface0 hover:text-ctp-text",
   danger:
     "border-ctp-red bg-ctp-red text-ctp-crust hover:border-ctp-maroon hover:bg-ctp-maroon",
+  dangerOutline:
+    "border-ctp-red/60 bg-transparent text-ctp-red hover:border-ctp-red hover:bg-ctp-red/10",
 };
 
 export function buttonClasses(
   variant: ButtonVariant = "primary",
   className?: string,
+  size: ButtonSize = "default",
 ): string {
   return joinClasses(
-    "inline-flex min-h-10 items-center justify-center gap-2 rounded border px-4 py-2 text-sm font-semibold transition-colors",
+    "inline-flex items-center justify-center gap-2 rounded border font-semibold transition-colors",
+    size === "compact"
+      ? "min-h-9 px-3 py-1.5 text-xs"
+      : "min-h-10 px-4 py-2 text-sm",
     buttonVariants[variant],
     className,
   );
@@ -42,9 +51,15 @@ export function buttonClasses(
 export function Button({
   className,
   variant = "primary",
+  size = "default",
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant }) {
-  return <button className={buttonClasses(variant, className)} {...props} />;
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+}) {
+  return (
+    <button className={buttonClasses(variant, className, size)} {...props} />
+  );
 }
 
 export function Field({
@@ -65,36 +80,44 @@ export function Field({
   );
 }
 
-export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
+export function Input({ className, ...props }: ComponentPropsWithRef<"input">) {
   return (
     <input
       className={joinClasses(
         "w-full rounded border border-ctp-surface1 bg-ctp-mantle px-3 py-3 text-ctp-text placeholder:text-ctp-overlay0 hover:border-ctp-overlay0 focus:border-ctp-lavender focus:outline-2 focus:outline-offset-0 focus:outline-ctp-lavender/30",
-        props.className,
+        className,
       )}
       {...props}
     />
   );
 }
 
-export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
+export function Select({
+  className,
+  compact = false,
+  ...props
+}: SelectHTMLAttributes<HTMLSelectElement> & { compact?: boolean }) {
   return (
     <select
       className={joinClasses(
-        "w-full rounded border border-ctp-surface1 bg-ctp-mantle px-3 py-3 text-ctp-text hover:border-ctp-overlay0 focus:border-ctp-lavender focus:outline-2 focus:outline-offset-0 focus:outline-ctp-lavender/30",
-        props.className,
+        "w-full rounded border border-ctp-surface1 bg-ctp-mantle px-3 text-ctp-text hover:border-ctp-overlay0 focus:border-ctp-lavender focus:outline-2 focus:outline-offset-0 focus:outline-ctp-lavender/30",
+        compact ? "py-2 text-sm" : "py-3",
+        className,
       )}
       {...props}
     />
   );
 }
 
-export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+export function Textarea({
+  className,
+  ...props
+}: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       className={joinClasses(
         "min-h-36 w-full resize-y rounded border border-ctp-surface1 bg-ctp-mantle px-3 py-3 font-mono text-sm text-ctp-text placeholder:text-ctp-overlay0 hover:border-ctp-overlay0 focus:border-ctp-lavender focus:outline-2 focus:outline-offset-0 focus:outline-ctp-lavender/30",
-        props.className,
+        className,
       )}
       {...props}
     />
@@ -117,6 +140,166 @@ export function Card({
     >
       {children}
     </div>
+  );
+}
+
+export function SettingsSection({
+  title,
+  description,
+  tone = "default",
+  children,
+}: {
+  title: string;
+  description?: string;
+  tone?: "default" | "danger";
+  children: ReactNode;
+}) {
+  const titleId = useId();
+  return (
+    <section aria-labelledby={titleId}>
+      <header className="mb-2 px-1">
+        <h2
+          id={titleId}
+          className={joinClasses(
+            "font-mono text-sm font-semibold",
+            tone === "danger" ? "text-ctp-red" : "text-ctp-text",
+          )}
+        >
+          {title}
+        </h2>
+        {description ? (
+          <p className="mt-1 text-xs leading-5 text-ctp-subtext0">
+            {description}
+          </p>
+        ) : null}
+      </header>
+      <div className="divide-y divide-ctp-surface0 overflow-hidden rounded border border-ctp-surface1 bg-ctp-mantle">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+export function SettingsRow({
+  label,
+  value,
+  description,
+  action,
+  children,
+  technical = false,
+}: {
+  label: string;
+  value?: ReactNode;
+  description?: ReactNode;
+  action?: ReactNode;
+  children?: ReactNode;
+  technical?: boolean;
+}) {
+  return (
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 px-4 py-3.5 sm:grid-cols-[8.5rem_minmax(0,1fr)_auto] sm:items-center sm:px-5">
+      <div className="text-sm font-medium text-ctp-subtext0">{label}</div>
+      <div className="col-start-1 min-w-0 sm:col-start-2 sm:row-start-1">
+        {value ? (
+          <div
+            className={joinClasses(
+              "text-sm break-words text-ctp-text",
+              technical && "font-mono",
+            )}
+          >
+            {value}
+          </div>
+        ) : null}
+        {description ? (
+          <div className="mt-1 text-xs leading-5 text-ctp-overlay1">
+            {description}
+          </div>
+        ) : null}
+      </div>
+      {action ? (
+        <div className="col-start-2 row-span-2 row-start-1 shrink-0 self-center sm:col-start-3 sm:row-span-1">
+          {action}
+        </div>
+      ) : null}
+      {children ? (
+        <div className="col-span-2 mt-3 min-w-0 rounded border border-ctp-surface0 bg-ctp-crust/30 p-4 sm:col-start-2 sm:col-end-4">
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function SegmentedControl<Value extends string>({
+  label,
+  value,
+  choices,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: Value;
+  choices: ReadonlyArray<{ value: Value; label: string }>;
+  disabled?: boolean;
+  onChange: (value: Value) => void;
+}) {
+  return (
+    <fieldset className="inline-flex max-w-full rounded border border-ctp-surface1 bg-ctp-crust p-1">
+      <legend className="sr-only">{label}</legend>
+      {choices.map((choice) => (
+        <button
+          key={choice.value}
+          type="button"
+          aria-pressed={choice.value === value}
+          disabled={disabled}
+          className={joinClasses(
+            "min-h-9 rounded px-3 py-1.5 font-mono text-xs font-semibold transition-colors",
+            choice.value === value
+              ? "bg-ctp-surface1 text-ctp-text"
+              : "text-ctp-subtext0 hover:bg-ctp-surface0 hover:text-ctp-text",
+          )}
+          onClick={() => onChange(choice.value)}
+        >
+          {choice.label}
+        </button>
+      ))}
+    </fieldset>
+  );
+}
+
+export function SettingsSwitch({
+  label,
+  checked,
+  disabled,
+  onCheckedChange,
+}: {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-label={label}
+      aria-checked={checked}
+      disabled={disabled}
+      className={joinClasses(
+        "relative inline-flex h-6 w-11 rounded-full border transition-colors",
+        checked
+          ? "border-ctp-lavender bg-ctp-lavender"
+          : "border-ctp-overlay0 bg-ctp-surface0",
+      )}
+      onClick={() => onCheckedChange(!checked)}
+    >
+      <span
+        aria-hidden="true"
+        className={joinClasses(
+          "absolute top-0.5 size-[1.125rem] rounded-full bg-ctp-crust shadow-sm transition-transform",
+          checked ? "translate-x-[1.25rem]" : "translate-x-0.5",
+        )}
+      />
+    </button>
   );
 }
 

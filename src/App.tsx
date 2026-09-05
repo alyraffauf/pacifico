@@ -7,10 +7,11 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { AuthLayout } from "./components/AuthLayout.tsx";
-import { Loading } from "./components/ui.tsx";
 import { useAuthState } from "./hooks/useAuthState.ts";
 import { initAuth } from "./lib/auth.ts";
 import { HomePage } from "./pages/HomePage.tsx";
+import { DashboardRoute } from "./pages/DashboardRoute.tsx";
+import { SettingsPage } from "./pages/dashboard/SettingsPage.tsx";
 
 function page<T extends Record<string, unknown>, K extends keyof T>(
   loader: () => Promise<T>,
@@ -31,10 +32,6 @@ const ActAsPage = page(() => import("./pages/ActAsPage.tsx"), "ActAsPage");
 const MigrationPage = page(
   () => import("./pages/MigrationPage.tsx"),
   "MigrationPage",
-);
-const DashboardRoute = page(
-  () => import("./pages/DashboardRoute.tsx"),
-  "DashboardRoute",
 );
 const RecoverPasskeyPage = page(
   () => import("./pages/AccountRecoveryPages.tsx"),
@@ -59,10 +56,6 @@ const AppPasswordsPage = page(
 const SessionsPage = page(
   () => import("./pages/dashboard/SessionsPage.tsx"),
   "SessionsPage",
-);
-const SettingsPage = page(
-  () => import("./pages/dashboard/SettingsPage.tsx"),
-  "SettingsPage",
 );
 const SecurityPage = page(
   () => import("./pages/dashboard/SecurityPage.tsx"),
@@ -127,12 +120,7 @@ const SsoRegisterPage = page(
 
 function AccountIndex() {
   const auth = useAuthState();
-  if (auth.kind === "loading")
-    return (
-      <AuthLayout title="Opening your PDS">
-        <Loading />
-      </AuthLayout>
-    );
+  if (auth.kind === "loading") return null;
   return (
     <Navigate
       to={auth.kind === "authenticated" ? "/app/settings" : "/app/login"}
@@ -173,13 +161,7 @@ export default function App() {
   return (
     <>
       <ScrollToTop />
-      <Suspense
-        fallback={
-          <AuthLayout title="Opening page">
-            <Loading />
-          </AuthLayout>
-        }
-      >
+      <Suspense fallback={null}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/app" element={<AccountIndex />} />

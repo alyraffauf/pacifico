@@ -13,7 +13,7 @@ import {
 } from "../../lib/i18n.ts";
 import { getSessionEmail } from "../../lib/types/api.ts";
 import { unsafeAsHandle } from "../../lib/types/branded.ts";
-import { SettingsSections } from "./SettingsSections.tsx";
+import { SettingsSections, type SettingsEditor } from "./SettingsSections.tsx";
 
 type Notice = { tone: "success" | "error" | "warning"; text: string };
 type EmailUpdateStatus = {
@@ -41,6 +41,7 @@ export function SettingsPage() {
   }, [session.accessJwt]);
   const preferences = useAsync(loadPreferences);
   const [handle, setHandle] = useState("");
+  const [activeEditor, setActiveEditor] = useState<SettingsEditor>(null);
   const [customHandle, setCustomHandle] = useState(false);
   const [selectedDomain, setSelectedDomain] = useState("");
   const [email, setEmail] = useState("");
@@ -64,6 +65,7 @@ export function SettingsPage() {
     queueMicrotask(() => {
       if (accessJwt !== session.accessJwt) return;
       setHandle("");
+      setActiveEditor(null);
       setCustomHandle(false);
       setSelectedDomain("");
       setEmail("");
@@ -86,6 +88,7 @@ export function SettingsPage() {
       );
       const status = loaded.emailStatus;
       if (!status.pending) return;
+      setActiveEditor("email");
       setEmailTokenRequired(true);
       setEmailUpdateAuthorized(status.authorized);
       if (status.newEmail) setEmail(status.newEmail);
@@ -140,6 +143,7 @@ export function SettingsPage() {
         setEmailTokenRequired(false);
         setEmailUpdateAuthorized(false);
         setEmailInUse(false);
+        setActiveEditor(null);
         setNotice({ tone: "success", text: "Email updated." });
       })
       .catch((caught) => {
@@ -154,18 +158,23 @@ export function SettingsPage() {
       .finally(() => setSaving(false));
   }, [email, emailUpdateAuthorized, session.accessJwt]);
 
-  async function run(action: () => Promise<void>, success: string) {
+  async function run(
+    action: () => Promise<void>,
+    success: string,
+  ): Promise<boolean> {
     setSaving(true);
     setNotice(null);
     try {
       await action();
       setNotice({ tone: "success", text: success });
+      return true;
     } catch (caught) {
       setNotice({
         tone: "error",
         text:
           caught instanceof ApiError ? caught.message : "The request failed.",
       });
+      return false;
     } finally {
       setSaving(false);
     }
@@ -173,7 +182,7 @@ export function SettingsPage() {
 
   async function saveHandle(event: React.FormEvent) {
     event.preventDefault();
-    await run(async () => {
+    const updated = await run(async () => {
       const nextHandle = customHandle
         ? handle.trim()
         : `${handle.trim()}.${selectedDomain}`;
@@ -181,6 +190,7 @@ export function SettingsPage() {
       await refreshSession();
       setHandle("");
     }, "Handle updated.");
+    if (updated) setActiveEditor(null);
   }
 
   async function checkEmailAvailability() {
@@ -215,6 +225,17 @@ export function SettingsPage() {
     emailAvailabilityRequest.current += 1;
   }
 
+  function cancelHandleEditor() {
+    setHandle("");
+    setCustomHandle(false);
+    setActiveEditor(null);
+  }
+
+  function cancelEmailEditor() {
+    clearEmailUpdate();
+    setActiveEditor(null);
+  }
+
   async function saveEmail(event: React.FormEvent) {
     event.preventDefault();
     setSaving(true);
@@ -229,6 +250,7 @@ export function SettingsPage() {
         );
         await refreshSession();
         clearEmailUpdate();
+        setActiveEditor(null);
         setNotice({ tone: "success", text: "Email updated." });
       } else {
         const result = await api.requestEmailUpdate(
@@ -246,6 +268,7 @@ export function SettingsPage() {
           await api.updateEmail(session.accessJwt, nextEmail);
           await refreshSession();
           clearEmailUpdate();
+          setActiveEditor(null);
           setNotice({ tone: "success", text: "Email updated." });
         }
       }
@@ -321,10 +344,10 @@ export function SettingsPage() {
   );
 
   return (
-    <div className="grid gap-6">
+    <div className="mx-auto grid max-w-[52rem] gap-6">
       <PageHeading
         title={t("dashboard.navSettings")}
-        description={t("settings.messages")}
+        description={t("settings.subtitle")}
       />
       {notice ? <Alert tone={notice.tone}>{notice.text}</Alert> : null}
       {preferences.error ? (
@@ -332,6 +355,10 @@ export function SettingsPage() {
       ) : null}
       <SettingsSections
         t={t}
+        activeEditor={activeEditor}
+        setActiveEditor={setActiveEditor}
+        cancelHandleEditor={cancelHandleEditor}
+        cancelEmailEditor={cancelEmailEditor}
         sessionHandle={session.handle}
         sessionDid={session.did}
         sessionEmail={getSessionEmail(session)}
@@ -354,7 +381,6 @@ export function SettingsPage() {
         emailUpdateAuthorized={emailUpdateAuthorized}
         checkEmailAvailability={checkEmailAvailability}
         saveEmail={saveEmail}
-        clearEmailUpdate={clearEmailUpdate}
         locale={locale}
         changeLocale={changeLocale}
         legacyLogin={legacyLogin}
