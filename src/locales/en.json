@@ -295,6 +295,11 @@
     }
   },
   "appPasswords": {
+    "description": "Create separate passwords for apps that don't support OAuth or passkeys.",
+    "createPassword": "Create an app password",
+    "createDescription": "For one app or device that cannot use OAuth or a passkey.",
+    "createdOn": "Created {date}",
+    "revokePassword": "Revoke app password",
     "create": "Create",
     "name": "Name",
     "namePlaceholder": "App name (eg. Witchsky)",

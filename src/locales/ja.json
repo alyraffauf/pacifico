@@ -295,6 +295,11 @@
     }
   },
   "appPasswords": {
+    "description": "OAuthまたはパスキーに対応していないアプリ用に個別のパスワードを作成します。",
+    "createPassword": "アプリパスワードを作成",
+    "createDescription": "OAuthまたはパスキーを使用できない1つのアプリや端末用です。",
+    "createdOn": "{date}に作成",
+    "revokePassword": "アプリパスワードを取り消す",
     "created": "アプリパスワードを作成しました",
     "createdMessage": "このパスワードを今すぐコピーしてください。再度表示することはできません。",
     "noPasswords": "アプリパスワードはまだありません",

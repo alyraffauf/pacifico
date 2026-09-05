@@ -295,6 +295,11 @@
     }
   },
   "appPasswords": {
+    "description": "Skapa separata lösenord för appar som inte stöder OAuth eller passkeys.",
+    "createPassword": "Skapa ett applösenord",
+    "createDescription": "För en app eller enhet som inte kan använda OAuth eller en passkey.",
+    "createdOn": "Skapad {date}",
+    "revokePassword": "Återkalla applösenord",
     "created": "Applösenord skapat",
     "createdMessage": "Kopiera detta lösenord nu. Du kommer inte att kunna se det igen.",
     "noPasswords": "Inga applösenord ännu",

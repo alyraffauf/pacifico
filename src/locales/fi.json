@@ -295,6 +295,11 @@
     }
   },
   "appPasswords": {
+    "description": "Luo erillisiä salasanoja sovelluksille, jotka eivät tue OAuthia tai avaimia.",
+    "createPassword": "Luo sovellussalasana",
+    "createDescription": "Yhdelle sovellukselle tai laitteelle, joka ei voi käyttää OAuthia tai avainta.",
+    "createdOn": "Luotu {date}",
+    "revokePassword": "Peruuta sovellussalasana",
     "created": "Sovelluksen salasana luotu",
     "createdMessage": "Kopioi tämä salasana nyt. Et voi nähdä sitä enää myöhemmin.",
     "noPasswords": "Ei vielä sovellusten salasanoja",

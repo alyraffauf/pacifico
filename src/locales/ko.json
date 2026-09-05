@@ -295,6 +295,11 @@
     }
   },
   "appPasswords": {
+    "description": "OAuth 또는 패스키를 지원하지 않는 앱에 사용할 별도 비밀번호를 만드세요.",
+    "createPassword": "앱 비밀번호 만들기",
+    "createDescription": "OAuth 또는 패스키를 사용할 수 없는 앱이나 기기 하나에 사용합니다.",
+    "createdOn": "{date}에 생성",
+    "revokePassword": "앱 비밀번호 취소",
     "created": "앱 비밀번호가 생성되었습니다",
     "createdMessage": "지금 이 비밀번호를 복사하세요. 다시 볼 수 없습니다.",
     "noPasswords": "앱 비밀번호가 아직 없습니다",

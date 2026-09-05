@@ -34,4 +34,21 @@ describe("i18n", () => {
       expect(subtitle).not.toMatch(/[{}]/);
     },
   );
+
+  it.each(supportedLocales)(
+    "renders App Password copy and dates without raw keys in %s",
+    async (locale) => {
+      localStorage.setItem("tranquil-pds-locale", locale);
+      await initializeI18n();
+
+      const description = translate("appPasswords.description");
+      const createdOn = translate("appPasswords.createdOn", {
+        date: "2026-09-05",
+      });
+
+      expect(description).not.toBe("appPasswords.description");
+      expect(createdOn).toContain("2026-09-05");
+      expect(`${description} ${createdOn}`).not.toMatch(/[{}]/);
+    },
+  );
 });

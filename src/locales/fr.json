@@ -295,6 +295,11 @@
     }
   },
   "appPasswords": {
+    "description": "Créez des mots de passe distincts pour les applications qui ne prennent pas en charge OAuth ou les clés d'accès.",
+    "createPassword": "Créer un mot de passe d'application",
+    "createDescription": "Pour une application ou un appareil qui ne peut pas utiliser OAuth ou une clé d'accès.",
+    "createdOn": "Créé le {date}",
+    "revokePassword": "Révoquer le mot de passe d'application",
     "create": "Créer",
     "name": "Nom",
     "namePlaceholder": "Nom de l'application (ex. Witchsky)",

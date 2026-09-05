@@ -501,6 +501,18 @@ function PasskeySection({
       <SettingsSection
         title="Passkeys"
         description="Use your fingerprint, face, or device PIN to sign in without entering a password."
+        action={
+          <Button
+            type="button"
+            size="compact"
+            aria-haspopup="dialog"
+            aria-expanded={settings.addEditorOpen}
+            disabled={saving}
+            onClick={settings.openAddEditor}
+          >
+            Add passkey
+          </Button>
+        }
       >
         {settings.items.map((passkey) => {
           const name = passkey.friendlyName || "Unnamed passkey";
@@ -546,22 +558,6 @@ function PasskeySection({
             />
           );
         })}
-        <SettingsItem
-          title="Add a passkey"
-          description="Register this browser or a hardware security key."
-          action={
-            <Button
-              type="button"
-              variant="ghost"
-              size="compact"
-              aria-haspopup="dialog"
-              aria-expanded={settings.addEditorOpen}
-              onClick={settings.openAddEditor}
-            >
-              Add
-            </Button>
-          }
-        />
       </SettingsSection>
 
       <SettingsDialog

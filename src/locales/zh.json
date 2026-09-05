@@ -295,6 +295,11 @@
     }
   },
   "appPasswords": {
+    "description": "为不支持 OAuth 或通行密钥的应用创建单独的密码。",
+    "createPassword": "创建应用专用密码",
+    "createDescription": "用于一个无法使用 OAuth 或通行密钥的应用或设备。",
+    "createdOn": "创建于 {date}",
+    "revokePassword": "撤销应用专用密码",
     "created": "应用专用密码已创建",
     "createdMessage": "请立即复制此密码，您将无法再次查看。",
     "noPasswords": "暂无应用专用密码",

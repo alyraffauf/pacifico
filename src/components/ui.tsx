@@ -149,19 +149,27 @@ export function SettingsSection({
   title,
   description,
   action,
+  titleHidden = false,
   tone = "default",
   children,
 }: {
   title: string;
   description?: string;
   action?: ReactNode;
+  titleHidden?: boolean;
   tone?: "default" | "danger";
   children: ReactNode;
 }) {
   const titleId = useId();
   return (
     <section aria-labelledby={titleId}>
-      <header className="mb-2 flex flex-col items-start gap-2 px-1 min-[360px]:flex-row min-[360px]:items-end min-[360px]:justify-between min-[360px]:gap-3">
+      <header
+        className={joinClasses(
+          titleHidden
+            ? "sr-only"
+            : "mb-2 flex flex-col items-start gap-2 px-1 min-[360px]:flex-row min-[360px]:items-end min-[360px]:justify-between min-[360px]:gap-3",
+        )}
+      >
         <div className="min-w-0">
           <h2
             id={titleId}
