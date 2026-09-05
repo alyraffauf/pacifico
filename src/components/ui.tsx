@@ -223,6 +223,7 @@ export function SettingsRow({
   action,
   children,
   technical = false,
+  stackActionOnMobile = false,
 }: {
   label: string;
   value?: ReactNode;
@@ -230,9 +231,15 @@ export function SettingsRow({
   action?: ReactNode;
   children?: ReactNode;
   technical?: boolean;
+  stackActionOnMobile?: boolean;
 }) {
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-x-3 gap-y-1 px-4 py-3.5 min-[360px]:grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[8.5rem_minmax(0,1fr)_auto] sm:items-center sm:px-5">
+    <div
+      className={joinClasses(
+        "grid min-w-0 grid-cols-1 gap-x-3 gap-y-1 px-4 py-3.5 sm:grid-cols-[8.5rem_minmax(0,1fr)_auto] sm:items-center sm:px-5",
+        !stackActionOnMobile && "min-[360px]:grid-cols-[minmax(0,1fr)_auto]",
+      )}
+    >
       <div className="text-sm font-medium text-ctp-subtext0">{label}</div>
       <div className="col-start-1 min-w-0 sm:col-start-2 sm:row-start-1">
         {value ? (
@@ -252,7 +259,13 @@ export function SettingsRow({
         ) : null}
       </div>
       {action ? (
-        <div className="col-start-1 mt-2 shrink-0 self-center justify-self-start min-[360px]:col-start-2 min-[360px]:row-span-2 min-[360px]:row-start-1 min-[360px]:mt-0 min-[360px]:justify-self-auto sm:col-start-3 sm:row-span-1">
+        <div
+          className={joinClasses(
+            "col-start-1 mt-2 shrink-0 self-center justify-self-start sm:col-start-3 sm:row-span-1 sm:mt-0 sm:justify-self-auto",
+            !stackActionOnMobile &&
+              "min-[360px]:col-start-2 min-[360px]:row-span-2 min-[360px]:row-start-1 min-[360px]:mt-0 min-[360px]:justify-self-auto",
+          )}
+        >
           {action}
         </div>
       ) : null}

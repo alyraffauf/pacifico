@@ -34,6 +34,16 @@ const scopePresets = {
 
 type ScopePreset = keyof typeof scopePresets;
 
+export type AppPasswordsPageApi = Pick<
+  typeof api,
+  "listAppPasswords" | "createAppPassword" | "revokeAppPassword"
+>;
+
+interface AppPasswordsPageProps {
+  apiClient?: AppPasswordsPageApi;
+  confirmAction?: (message: string) => boolean;
+}
+
 function passwordScope(password: AppPassword): ScopePreset | "custom" {
   if (!password.scopes) return "full";
   if (password.scopes === scopePresets.readonly) return "readonly";
@@ -41,12 +51,15 @@ function passwordScope(password: AppPassword): ScopePreset | "custom" {
   return "custom";
 }
 
-export function AppPasswordsPage() {
+export function AppPasswordsPage({
+  apiClient = api,
+  confirmAction,
+}: AppPasswordsPageProps = {}) {
   const session = useSession();
   const t = useTranslation();
   const loadPasswords = useCallback(
-    () => api.listAppPasswords(session.accessJwt),
-    [session.accessJwt],
+    () => apiClient.listAppPasswords(session.accessJwt),
+    [apiClient, session.accessJwt],
   );
   const passwords = useAsync(loadPasswords);
   const [name, setName] = useState("");
@@ -101,7 +114,7 @@ export function AppPasswordsPage() {
     setError(null);
     setNotice(null);
     try {
-      const result = await api.createAppPassword(
+      const result = await apiClient.createAppPassword(
         session.accessJwt,
         name.trim(),
         scopePresets[scope],
@@ -125,6 +138,13 @@ export function AppPasswordsPage() {
   }
 
   function requestPasswordRevocation(passwordName: string) {
+    const confirmation = t("appPasswords.deleteConfirm", {
+      name: passwordName,
+    });
+    if (confirmAction) {
+      if (confirmAction(confirmation)) void revokePassword(passwordName);
+      return;
+    }
     setCreateDialogOpen(false);
     setError(null);
     setNotice(null);
@@ -142,7 +162,7 @@ export function AppPasswordsPage() {
     setError(null);
     setNotice(null);
     try {
-      await api.revokeAppPassword(session.accessJwt, passwordName);
+      await apiClient.revokeAppPassword(session.accessJwt, passwordName);
       await passwords.reload();
       setPendingRevocation(null);
       setNotice(t("appPasswords.deleted"));

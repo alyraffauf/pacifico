@@ -17,6 +17,18 @@ import { formatDateTime } from "../../lib/date.ts";
 import { useTranslation } from "../../lib/i18n.ts";
 import type { SessionInfo } from "../../lib/types/api.ts";
 
+export type SessionsPageApi = Pick<
+  typeof api,
+  "listSessions" | "revokeSession" | "revokeAllSessions"
+>;
+
+interface SessionsPageProps {
+  apiClient?: SessionsPageApi;
+  confirmAction?: (message: string) => boolean;
+  signOut?: () => Promise<unknown>;
+  onCurrentSessionRevoked?: () => void;
+}
+
 type PendingRevocation =
   { kind: "session"; session: SessionInfo } | { kind: "others"; count: number };
 
@@ -29,13 +41,18 @@ function sessionTypeLabel(session: SessionInfo) {
   return session.sessionType.replaceAll("_", " ");
 }
 
-export function SessionsPage() {
+export function SessionsPage({
+  apiClient = api,
+  confirmAction,
+  signOut = logout,
+  onCurrentSessionRevoked,
+}: SessionsPageProps = {}) {
   const session = useSession();
   const t = useTranslation();
   const navigate = useNavigate();
   const loadSessions = useCallback(
-    () => api.listSessions(session.accessJwt),
-    [session.accessJwt],
+    () => apiClient.listSessions(session.accessJwt),
+    [apiClient, session.accessJwt],
   );
   const resource = useAsync(loadSessions);
   const [mutationError, setMutationError] = useState<string | null>(null);
@@ -45,6 +62,16 @@ export function SessionsPage() {
     useState<PendingRevocation | null>(null);
 
   function requestSessionRevocation(sessionToRevoke: SessionInfo) {
+    const confirmation = t(
+      sessionToRevoke.isCurrent
+        ? "sessions.revokeCurrentConfirm"
+        : "sessions.revokeConfirm",
+    );
+    if (confirmAction) {
+      if (confirmAction(confirmation))
+        void revoke(sessionToRevoke.id, sessionToRevoke.isCurrent);
+      return;
+    }
     setMutationError(null);
     setMutationNotice(null);
     setPendingRevocation({ kind: "session", session: sessionToRevoke });
@@ -54,6 +81,11 @@ export function SessionsPage() {
     const count =
       resource.data?.sessions.filter((item) => !item.isCurrent).length ?? 0;
     if (count === 0) return;
+    const confirmation = t("sessions.revokeAllConfirm", { count });
+    if (confirmAction) {
+      if (confirmAction(confirmation)) void revokeOthers();
+      return;
+    }
     setMutationError(null);
     setMutationNotice(null);
     setPendingRevocation({ kind: "others", count });
@@ -70,11 +102,16 @@ export function SessionsPage() {
     setMutationError(null);
     setMutationNotice(null);
     try {
-      await api.revokeSession(session.accessJwt, sessionId);
+      await apiClient.revokeSession(session.accessJwt, sessionId);
       if (isCurrent) {
-        await logout();
+        await signOut();
         setPendingRevocation(null);
-        navigate("/app/login", { replace: true });
+        if (onCurrentSessionRevoked) {
+          onCurrentSessionRevoked();
+          await resource.reload();
+        } else {
+          navigate("/app/login", { replace: true });
+        }
       } else {
         await resource.reload();
         setPendingRevocation(null);
@@ -97,7 +134,7 @@ export function SessionsPage() {
     setMutationError(null);
     setMutationNotice(null);
     try {
-      await api.revokeAllSessions(session.accessJwt);
+      await apiClient.revokeAllSessions(session.accessJwt);
       await resource.reload();
       setPendingRevocation(null);
       setMutationNotice(t("sessions.allSessionsRevoked"));

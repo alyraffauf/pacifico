@@ -1,11 +1,13 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { IconCheck, IconCopy } from "@tabler/icons-react";
 import {
   Alert,
   Button,
-  Card,
-  EmptyState,
-  Loading,
   PageHeading,
+  SettingsDialog,
+  SettingsItem,
+  SettingsSection,
+  SettingsTag,
 } from "../../components/ui.tsx";
 import { useAsync } from "../../hooks/useAsync.ts";
 import { useSession } from "../../hooks/useSession.ts";
@@ -14,41 +16,71 @@ import { formatDate } from "../../lib/date.ts";
 import { useTranslation } from "../../lib/i18n.ts";
 import type { InviteCodeInfo } from "../../lib/types/api.ts";
 
-function inviteStatus(
-  code: InviteCodeInfo,
-  t: ReturnType<typeof useTranslation>,
-): string {
-  if (code.disabled) return t("inviteCodes.disabled");
-  if (code.uses.length > 0) {
-    const use = code.uses[0];
-    return t("inviteCodes.used", {
-      handle: use.usedByHandle || use.usedBy.split(":").at(-1) || use.usedBy,
-    });
-  }
-  return code.available === 0
-    ? t("inviteCodes.spent")
-    : t("inviteCodes.available");
+export type InviteCodesPageApi = Pick<
+  typeof api,
+  "getAccountInviteCodes" | "createInviteCode" | "disableInviteCodes"
+>;
+
+interface InviteCodesPageProps {
+  apiClient?: InviteCodesPageApi;
+  confirmAction?: (message: string) => boolean;
 }
 
-export function InviteCodesPage() {
+function inviteStatus(
+  code: InviteCodeInfo,
+): "available" | "used" | "spent" | "disabled" {
+  if (code.disabled) return "disabled";
+  if (code.uses.length > 0) return "used";
+  return code.available === 0 ? "spent" : "available";
+}
+
+function invitee(code: InviteCodeInfo) {
+  const use = code.uses[0];
+  if (!use) return null;
+  return use.usedByHandle || use.usedBy.split(":").at(-1) || use.usedBy;
+}
+
+export function InviteCodesPage({
+  apiClient = api,
+  confirmAction,
+}: InviteCodesPageProps = {}) {
   const session = useSession();
   const t = useTranslation();
   const loadInviteCodes = useCallback(
-    () => api.getAccountInviteCodes(session.accessJwt),
-    [session.accessJwt],
+    () => apiClient.getAccountInviteCodes(session.accessJwt),
+    [apiClient, session.accessJwt],
   );
   const resource = useAsync(loadInviteCodes);
   const [createdCode, setCreatedCode] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [pendingDisable, setPendingDisable] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [disablingCode, setDisablingCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const copyFeedbackTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => () => clearTimeout(copyFeedbackTimeout.current), []);
+
+  function statusLabel(status: ReturnType<typeof inviteStatus>) {
+    switch (status) {
+      case "available":
+        return t("inviteCodes.available");
+      case "used":
+        return t("inviteCodes.usedStatus");
+      case "spent":
+        return t("inviteCodes.spent");
+      case "disabled":
+        return t("inviteCodes.disabled");
+    }
+  }
 
   async function copy(code: string) {
     try {
       await navigator.clipboard.writeText(code);
       setCopiedCode(code);
-      setTimeout(
+      clearTimeout(copyFeedbackTimeout.current);
+      copyFeedbackTimeout.current = setTimeout(
         () => setCopiedCode((current) => (current === code ? null : current)),
         2000,
       );
@@ -60,8 +92,9 @@ export function InviteCodesPage() {
   async function createCode() {
     setCreating(true);
     setError(null);
+    setNotice(null);
     try {
-      const result = await api.createInviteCode(session.accessJwt, 1);
+      const result = await apiClient.createInviteCode(session.accessJwt, 1);
       setCreatedCode(result.code);
       await resource.reload();
     } catch (caught) {
@@ -75,12 +108,29 @@ export function InviteCodesPage() {
     }
   }
 
+  function requestDisable(code: string) {
+    const confirmation = t("inviteCodes.disableConfirm", { code });
+    if (confirmAction) {
+      if (confirmAction(confirmation)) void disableCode(code);
+      return;
+    }
+    setError(null);
+    setNotice(null);
+    setPendingDisable(code);
+  }
+
+  function closeDisableDialog() {
+    if (disablingCode) return;
+    setPendingDisable(null);
+    setError(null);
+  }
+
   async function disableCode(code: string) {
-    if (!confirm(t("inviteCodes.disableConfirm", { code }))) return;
     setDisablingCode(code);
     setError(null);
+    setNotice(null);
     try {
-      await api.disableInviteCodes(session.accessJwt, [code]);
+      await apiClient.disableInviteCodes(session.accessJwt, [code]);
       resource.setData((current) =>
         current
           ? {
@@ -91,6 +141,8 @@ export function InviteCodesPage() {
             }
           : current,
       );
+      setPendingDisable(null);
+      setNotice(t("inviteCodes.disableSuccess"));
     } catch (caught) {
       setError(
         caught instanceof ApiError
@@ -102,93 +154,216 @@ export function InviteCodesPage() {
     }
   }
 
-  return (
-    <div className="grid gap-6">
-      <PageHeading
-        title={t("dashboard.navInviteCodes")}
-        description={t("inviteCodes.yourCodes")}
-        actions={
-          session.isAdmin ? (
-            <Button disabled={creating} onClick={() => void createCode()}>
-              {creating ? t("common.creating") : t("inviteCodes.createNew")}
-            </Button>
-          ) : undefined
-        }
-      />
-      {createdCode ? (
-        <Alert tone="warning">
-          <p className="font-semibold">{t("inviteCodes.created")}</p>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            <code className="flex-1 rounded bg-ctp-crust px-3 py-2 font-mono break-all text-ctp-text">
-              {createdCode}
-            </code>
-            <Button variant="secondary" onClick={() => void copy(createdCode)}>
-              {copiedCode === createdCode
-                ? t("common.copied")
-                : t("common.copyToClipboard")}
-            </Button>
-            <Button variant="ghost" onClick={() => setCreatedCode(null)}>
-              {t("common.done")}
-            </Button>
-          </div>
+  const heading = (
+    <PageHeading
+      title={t("dashboard.navInviteCodes")}
+      description={t("inviteCodes.description")}
+      actions={
+        session.isAdmin ? (
+          <Button
+            aria-haspopup="dialog"
+            disabled={creating}
+            onClick={() => void createCode()}
+          >
+            {creating ? t("common.creating") : t("inviteCodes.createNew")}
+          </Button>
+        ) : undefined
+      }
+    />
+  );
+
+  if (resource.loading && !resource.data) {
+    return (
+      <div className="mx-auto grid w-full max-w-[52rem] gap-6" aria-busy="true">
+        {heading}
+        <SettingsSection title={t("dashboard.navInviteCodes")} titleHidden>
+          <SettingsItem title={t("common.loading")} />
+          <SettingsItem title={t("common.loading")} />
+        </SettingsSection>
+      </div>
+    );
+  }
+
+  if (!resource.data) {
+    return (
+      <div className="mx-auto grid w-full max-w-[52rem] gap-6">
+        {heading}
+        <Alert tone="error">
+          {resource.error ?? t("inviteCodes.loadFailed")}
         </Alert>
-      ) : null}
-      {error || resource.error ? (
-        <Alert tone="error">{error ?? resource.error}</Alert>
-      ) : null}
-      {resource.loading ? (
-        <Loading />
-      ) : resource.data?.codes.length === 0 ? (
-        <EmptyState>{t("inviteCodes.noCodes")}</EmptyState>
-      ) : (
-        <div className="grid gap-3">
-          {resource.data?.codes.map((code) => (
-            <Card
+      </div>
+    );
+  }
+
+  const dialogOpen = Boolean(createdCode || pendingDisable);
+
+  return (
+    <div className="mx-auto grid w-full max-w-[52rem] gap-6">
+      {heading}
+      {resource.error ? <Alert tone="error">{resource.error}</Alert> : null}
+      {error && !dialogOpen ? <Alert tone="error">{error}</Alert> : null}
+      {notice ? <Alert tone="success">{notice}</Alert> : null}
+
+      <SettingsSection title={t("dashboard.navInviteCodes")} titleHidden>
+        {resource.data.codes.map((code) => {
+          const status = inviteStatus(code);
+          const usedBy = invitee(code);
+          return (
+            <SettingsItem
               key={code.code}
-              className={code.disabled ? "p-4 opacity-70" : "p-4"}
-            >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
+              technical
+              title={
+                <span className="flex flex-wrap items-center gap-2">
                   <code
                     className={
-                      code.disabled
-                        ? "font-mono text-sm text-ctp-overlay1 line-through"
-                        : "font-mono text-sm text-ctp-green"
+                      status === "disabled"
+                        ? "text-ctp-overlay1 line-through"
+                        : undefined
                     }
                   >
                     {code.code}
                   </code>
-                  <p className="mt-1 text-xs text-ctp-overlay1">
+                  <SettingsTag
+                    tone={status === "available" ? "accent" : "neutral"}
+                  >
+                    {statusLabel(status)}
+                  </SettingsTag>
+                </span>
+              }
+              description={
+                <span className="flex flex-wrap gap-x-2">
+                  <span>
                     {t("inviteCodes.createdOn", {
                       date: formatDate(code.createdAt),
-                    })}{" "}
-                    · {inviteStatus(code, t)}
-                  </p>
-                </div>
-                <div className="flex gap-2">
+                    })}
+                  </span>
+                  {usedBy ? (
+                    <span>{t("inviteCodes.used", { handle: usedBy })}</span>
+                  ) : null}
+                </span>
+              }
+              action={
+                <div className="flex flex-wrap gap-1 min-[360px]:justify-end">
                   <Button
-                    variant="secondary"
+                    type="button"
+                    variant="ghost"
+                    size="compact"
                     onClick={() => void copy(code.code)}
                   >
+                    {copiedCode === code.code ? (
+                      <IconCheck className="size-4" aria-hidden="true" />
+                    ) : (
+                      <IconCopy className="size-4" aria-hidden="true" />
+                    )}
                     {copiedCode === code.code
                       ? t("common.copied")
                       : t("inviteCodes.copy")}
                   </Button>
-                  {!code.disabled && code.available > 0 ? (
+                  {status === "available" ? (
                     <Button
-                      variant="danger"
-                      disabled={disablingCode === code.code}
-                      onClick={() => void disableCode(code.code)}
+                      type="button"
+                      variant="dangerOutline"
+                      size="compact"
+                      disabled={Boolean(disablingCode)}
+                      aria-haspopup="dialog"
+                      onClick={() => requestDisable(code.code)}
                     >
                       {t("inviteCodes.disable")}
                     </Button>
                   ) : null}
                 </div>
-              </div>
-            </Card>
-          ))}
+              }
+            />
+          );
+        })}
+        {resource.data.codes.length === 0 ? (
+          <SettingsItem title={t("inviteCodes.noCodes")} />
+        ) : null}
+      </SettingsSection>
+
+      <span className="sr-only" aria-live="polite">
+        {copiedCode ? t("common.copied") : ""}
+      </span>
+
+      <SettingsDialog
+        open={Boolean(createdCode)}
+        title={t("inviteCodes.created")}
+        description={t("inviteCodes.createdDescription")}
+        maxWidth="sm"
+        closeDisabled={creating}
+        onClose={() => setCreatedCode(null)}
+      >
+        {error ? (
+          <div className="mb-4">
+            <Alert tone="error">{error}</Alert>
+          </div>
+        ) : null}
+        <div className="grid gap-2">
+          <code className="rounded border border-ctp-surface1 bg-ctp-crust px-3 py-3 font-mono text-sm break-all text-ctp-text">
+            {createdCode}
+          </code>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              if (createdCode) void copy(createdCode);
+            }}
+          >
+            {copiedCode === createdCode ? (
+              <IconCheck className="size-4" aria-hidden="true" />
+            ) : (
+              <IconCopy className="size-4" aria-hidden="true" />
+            )}
+            {copiedCode === createdCode
+              ? t("common.copied")
+              : t("common.copyToClipboard")}
+          </Button>
         </div>
-      )}
+        <div className="mt-5 flex justify-end">
+          <Button type="button" onClick={() => setCreatedCode(null)}>
+            {t("common.done")}
+          </Button>
+        </div>
+      </SettingsDialog>
+
+      <SettingsDialog
+        open={Boolean(pendingDisable)}
+        title={t("inviteCodes.disable")}
+        description={
+          pendingDisable
+            ? t("inviteCodes.disableConfirm", { code: pendingDisable })
+            : undefined
+        }
+        maxWidth="sm"
+        closeDisabled={Boolean(disablingCode)}
+        onClose={closeDisableDialog}
+      >
+        {error ? (
+          <div className="mb-4">
+            <Alert tone="error">{error}</Alert>
+          </div>
+        ) : null}
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={Boolean(disablingCode)}
+            onClick={closeDisableDialog}
+          >
+            {t("common.cancel")}
+          </Button>
+          <Button
+            type="button"
+            variant="dangerOutline"
+            disabled={Boolean(disablingCode)}
+            onClick={() => {
+              if (pendingDisable) void disableCode(pendingDisable);
+            }}
+          >
+            {t("inviteCodes.disable")}
+          </Button>
+        </div>
+      </SettingsDialog>
     </div>
   );
 }

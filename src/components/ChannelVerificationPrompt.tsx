@@ -3,6 +3,7 @@ import type {
   ServerDescription,
   VerificationChannel,
 } from "../lib/types/api.ts";
+import { useTranslation } from "../lib/i18n.ts";
 
 export type ChannelVerificationServer = Pick<
   ServerDescription,
@@ -64,6 +65,8 @@ export function ChannelVerificationPrompt({
   handle,
   server,
 }: ChannelVerificationPromptProps) {
+  const t = useTranslation();
+
   if (channel === "telegram") {
     const encodedHandle = handle.replaceAll(".", "_");
     return (
@@ -74,19 +77,18 @@ export function ChannelVerificationPrompt({
             target="_blank"
             rel="noopener noreferrer"
           >
-            Open Telegram to verify
+            {t("comms.telegramOpenLink")}
           </a>
         ) : null}
         <p>
-          Send <code>/start {handle}</code> to{" "}
-          {server.telegramBotUsername ? (
-            <code>@{server.telegramBotUsername}</code>
-          ) : (
-            "the configured Telegram bot"
-          )}
-          .
+          {server.telegramBotUsername
+            ? t("comms.telegramStartBot", {
+                handle,
+                botUsername: server.telegramBotUsername,
+              })
+            : t("comms.telegramStartConfiguredBot", { handle })}
         </p>
-        <p className="text-ctp-overlay1">Waiting for verification...</p>
+        <p className="text-ctp-overlay1">{t("comms.verificationPending")}</p>
       </div>
     );
   }
@@ -100,14 +102,18 @@ export function ChannelVerificationPrompt({
             target="_blank"
             rel="noopener noreferrer"
           >
-            Open Discord to verify
+            {t("comms.discordOpenLink")}
           </a>
         ) : null}
         <p>
-          Or send <code>/start {handle}</code> to{" "}
-          <strong>{server.discordBotUsername ?? "the bot"}</strong>.
+          {server.discordBotUsername
+            ? t("comms.discordStartBot", {
+                handle,
+                botUsername: server.discordBotUsername,
+              })
+            : t("comms.discordStartConfiguredBot", { handle })}
         </p>
-        <p className="text-ctp-overlay1">Waiting for verification...</p>
+        <p className="text-ctp-overlay1">{t("comms.verificationPending")}</p>
       </div>
     );
   }

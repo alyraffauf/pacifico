@@ -27,6 +27,38 @@ interface ReauthRequest {
   retry: () => Promise<void>;
 }
 
+export type SecurityPageApi = Pick<
+  typeof api,
+  | "changePassword"
+  | "createTotpSecret"
+  | "deletePasskey"
+  | "disableTotp"
+  | "enableTotp"
+  | "finishPasskeyRegistration"
+  | "getPasswordStatus"
+  | "getReauthStatus"
+  | "getSsoLinkedAccounts"
+  | "getTotpStatus"
+  | "initiateSsoLink"
+  | "listPasskeys"
+  | "listTrustedDevices"
+  | "regenerateBackupCodes"
+  | "removePassword"
+  | "revokeTrustedDevice"
+  | "setPassword"
+  | "startPasskeyRegistration"
+  | "unlinkSsoAccount"
+  | "updatePasskey"
+  | "updateTrustedDevice"
+>;
+
+interface SecurityPageProps {
+  apiClient?: SecurityPageApi;
+  loadSsoProviders?: () => Promise<{ providers?: SsoProvider[] }>;
+  registerPasskey?: typeof createPasskeyCredential;
+  navigateTo?: (url: string) => void;
+}
+
 type OptionalResult<T> = { data: T; error?: string };
 
 async function optional<T>(
@@ -42,7 +74,22 @@ async function optional<T>(
   }
 }
 
-export function SecurityPage() {
+async function loadSsoProviders() {
+  const response = await fetch("/oauth/sso/providers");
+  if (!response.ok) throw new Error(`request failed with ${response.status}`);
+  return response.json() as Promise<{ providers?: SsoProvider[] }>;
+}
+
+function navigateToUrl(url: string) {
+  globalThis.location.assign(url);
+}
+
+export function SecurityPage({
+  apiClient = api,
+  loadSsoProviders: loadProviders = loadSsoProviders,
+  registerPasskey = createPasskeyCredential,
+  navigateTo = navigateToUrl,
+}: SecurityPageProps = {}) {
   const session = useSession();
   const loadSecurity = useCallback(async () => {
     const [
@@ -53,25 +100,21 @@ export function SecurityPage() {
       linkedAccounts,
       providers,
     ] = await Promise.all([
-      api.getPasswordStatus(session.accessJwt),
-      api.getTotpStatus(session.accessJwt),
-      api.listPasskeys(session.accessJwt),
+      apiClient.getPasswordStatus(session.accessJwt),
+      apiClient.getTotpStatus(session.accessJwt),
+      apiClient.listPasskeys(session.accessJwt),
       optional(
-        api.listTrustedDevices(session.accessJwt),
+        apiClient.listTrustedDevices(session.accessJwt),
         { devices: [] },
         "Trusted devices could not be loaded",
       ),
       optional(
-        api.getSsoLinkedAccounts(session.accessJwt),
+        apiClient.getSsoLinkedAccounts(session.accessJwt),
         { accounts: [] },
         "Linked accounts could not be loaded",
       ),
       optional(
-        fetch("/oauth/sso/providers").then(async (response) => {
-          if (!response.ok)
-            throw new Error(`request failed with ${response.status}`);
-          return response.json() as Promise<{ providers?: SsoProvider[] }>;
-        }),
+        loadProviders(),
         { providers: [] },
         "SSO providers could not be loaded",
       ),
@@ -92,7 +135,7 @@ export function SecurityPage() {
         providers.error,
       ].filter((value): value is string => Boolean(value)),
     };
-  }, [session.accessJwt]);
+  }, [apiClient, loadProviders, session.accessJwt]);
   const security = useAsync(loadSecurity);
 
   const [message, setMessage] = useState<SecurityMessage | null>(null);
@@ -153,7 +196,7 @@ export function SecurityPage() {
         let methods = caught.reauthMethods;
         if (!methods?.length) {
           try {
-            methods = (await api.getReauthStatus(session.accessJwt))
+            methods = (await apiClient.getReauthStatus(session.accessJwt))
               .availableMethods;
           } catch {
             methods = ["password"];
@@ -217,13 +260,13 @@ export function SecurityPage() {
     }
     const action = async () => {
       if (security.data?.password.hasPassword) {
-        await api.changePassword(
+        await apiClient.changePassword(
           session.accessJwt,
           currentPassword,
           newPassword,
         );
       } else {
-        await api.setPassword(session.accessJwt, newPassword);
+        await apiClient.setPassword(session.accessJwt, newPassword);
       }
       cancelPasswordEditor();
       await security.reload();
@@ -239,7 +282,7 @@ export function SecurityPage() {
   async function removePassword() {
     if (!confirm("Remove password sign-in from this account?")) return;
     await runSensitive(async () => {
-      await api.removePassword(session.accessJwt);
+      await apiClient.removePassword(session.accessJwt);
       cancelPasswordEditor();
       await security.reload();
     }, "Password removed.");
@@ -247,7 +290,7 @@ export function SecurityPage() {
 
   async function startTotpSetup() {
     await run(async () => {
-      const result = await api.createTotpSecret(session.accessJwt);
+      const result = await apiClient.createTotpSecret(session.accessJwt);
       setTotpSetup({
         step: "scan",
         qrBase64: result.qrBase64,
@@ -259,7 +302,7 @@ export function SecurityPage() {
   async function enableTotp(event: React.FormEvent) {
     event.preventDefault();
     await run(async () => {
-      const result = await api.enableTotp(
+      const result = await apiClient.enableTotp(
         session.accessJwt,
         totpCode.replace(/\s/g, ""),
       );
@@ -273,7 +316,7 @@ export function SecurityPage() {
   async function disableTotp(event: React.FormEvent) {
     event.preventDefault();
     await run(async () => {
-      await api.disableTotp(
+      await apiClient.disableTotp(
         session.accessJwt,
         totpPassword,
         totpCode.replace(/\s/g, ""),
@@ -286,7 +329,7 @@ export function SecurityPage() {
   async function regenerateBackupCodes(event: React.FormEvent) {
     event.preventDefault();
     await run(async () => {
-      const result = await api.regenerateBackupCodes(
+      const result = await apiClient.regenerateBackupCodes(
         session.accessJwt,
         totpPassword,
         totpCode.replace(/\s/g, ""),
@@ -306,13 +349,13 @@ export function SecurityPage() {
 
   async function addPasskey() {
     await run(async () => {
-      const credential = await createPasskeyCredential(() =>
-        api.startPasskeyRegistration(
+      const credential = await registerPasskey(() =>
+        apiClient.startPasskeyRegistration(
           session.accessJwt,
           passkeyName.trim() || undefined,
         ),
       );
-      await api.finishPasskeyRegistration(
+      await apiClient.finishPasskeyRegistration(
         session.accessJwt,
         credential,
         passkeyName.trim() || undefined,
@@ -325,7 +368,7 @@ export function SecurityPage() {
   async function renamePasskey() {
     if (!editingPasskeyId || !editedPasskeyName.trim()) return;
     await run(async () => {
-      await api.updatePasskey(
+      await apiClient.updatePasskey(
         session.accessJwt,
         editingPasskeyId,
         editedPasskeyName.trim(),
@@ -338,7 +381,7 @@ export function SecurityPage() {
   async function removePasskey(id: string, name: string) {
     if (!confirm(`Delete ${name}?`)) return;
     await runSensitive(async () => {
-      await api.deletePasskey(session.accessJwt, id);
+      await apiClient.deletePasskey(session.accessJwt, id);
       await security.reload();
     }, "Passkey deleted.");
   }
@@ -346,7 +389,7 @@ export function SecurityPage() {
   async function renameDevice() {
     if (!editingDeviceId || !editedDeviceName.trim()) return;
     await run(async () => {
-      await api.updateTrustedDevice(
+      await apiClient.updateTrustedDevice(
         session.accessJwt,
         editingDeviceId,
         editedDeviceName.trim(),
@@ -360,7 +403,7 @@ export function SecurityPage() {
     if (!confirm(`Stop trusting ${device.friendlyName || "this device"}?`))
       return;
     await run(async () => {
-      await api.revokeTrustedDevice(session.accessJwt, device.id);
+      await apiClient.revokeTrustedDevice(session.accessJwt, device.id);
       await security.reload();
     }, "Trusted device revoked.");
   }
@@ -368,12 +411,12 @@ export function SecurityPage() {
   async function linkSso(provider: SsoProvider) {
     setLinkingProvider(provider.provider);
     await runSensitive(async () => {
-      const result = await api.initiateSsoLink(
+      const result = await apiClient.initiateSsoLink(
         session.accessJwt,
         provider.provider,
         `urn:tranquil:sso:link:${Date.now()}`,
       );
-      globalThis.location.assign(result.redirect_url);
+      navigateTo(result.redirect_url);
     });
     setLinkingProvider(null);
   }
@@ -381,7 +424,7 @@ export function SecurityPage() {
   async function unlinkSso(account: SsoLinkedAccount) {
     if (!confirm(`Unlink ${account.provider_name}?`)) return;
     await runSensitive(async () => {
-      await api.unlinkSsoAccount(session.accessJwt, account.id);
+      await apiClient.unlinkSsoAccount(session.accessJwt, account.id);
       await security.reload();
     }, `${account.provider_name} unlinked.`);
   }

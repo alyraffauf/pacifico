@@ -51,4 +51,71 @@ describe("i18n", () => {
       expect(`${description} ${createdOn}`).not.toMatch(/[{}]/);
     },
   );
+
+  it.each(supportedLocales)(
+    "renders Invite Code dialog copy without raw keys in %s",
+    async (locale) => {
+      localStorage.setItem("tranquil-pds-locale", locale);
+      await initializeI18n();
+
+      const description = translate("inviteCodes.description");
+      const createdDescription = translate("inviteCodes.createdDescription");
+      const usedStatus = translate("inviteCodes.usedStatus");
+
+      expect(description).not.toBe("inviteCodes.description");
+      expect(createdDescription).not.toBe("inviteCodes.createdDescription");
+      expect(usedStatus).not.toBe("inviteCodes.usedStatus");
+      expect(`${description} ${createdDescription} ${usedStatus}`).not.toMatch(
+        /[{}]/,
+      );
+    },
+  );
+
+  it.each(supportedLocales)(
+    "renders Communication preferences without raw keys in %s",
+    async (locale) => {
+      localStorage.setItem("tranquil-pds-locale", locale);
+      await initializeI18n();
+
+      const description = translate("comms.description");
+      const channelDescription = translate(
+        "comms.channelConfigurationDescription",
+      );
+      const verification = translate("comms.verifyDescription", {
+        identifier: "alice",
+      });
+
+      expect(description).not.toBe("comms.description");
+      expect(channelDescription).not.toBe(
+        "comms.channelConfigurationDescription",
+      );
+      expect(verification).toContain("alice");
+      expect(
+        `${description} ${channelDescription} ${verification}`,
+      ).not.toMatch(/[{}]/);
+    },
+  );
+
+  it.each(supportedLocales)(
+    "renders Delegation settings without raw keys in %s",
+    async (locale) => {
+      localStorage.setItem("tranquil-pds-locale", locale);
+      await initializeI18n();
+
+      const description = translate("delegation.description");
+      const grantedOn = translate("delegation.grantedOn", {
+        date: "2026-09-05",
+      });
+      const accountCreated = translate("delegation.accountCreated", {
+        handle: "alice.example.com",
+      });
+
+      expect(description).not.toBe("delegation.description");
+      expect(grantedOn).toContain("2026-09-05");
+      expect(accountCreated).toContain("alice.example.com");
+      expect(`${description} ${grantedOn} ${accountCreated}`).not.toMatch(
+        /[{}]/,
+      );
+    },
+  );
 });

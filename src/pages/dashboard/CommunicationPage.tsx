@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import {
   ChannelVerificationPrompt,
   hasBotVerification,
@@ -6,19 +12,22 @@ import {
 import {
   Alert,
   Button,
-  Card,
-  EmptyState,
   Field,
   Input,
-  Loading,
   PageHeading,
   Select,
+  SettingsDialog,
+  SettingsItem,
+  SettingsRow,
+  SettingsSection,
+  SettingsTag,
 } from "../../components/ui.tsx";
 import { useAsync } from "../../hooks/useAsync.ts";
 import { useSession } from "../../hooks/useSession.ts";
 import { refreshSession } from "../../lib/auth.ts";
 import { api, ApiError } from "../../lib/api.ts";
 import { formatDateTime } from "../../lib/date.ts";
+import { useTranslation } from "../../lib/i18n.ts";
 import { getChangedMessagingUsernames } from "../../lib/pacifico/communication.ts";
 import type { VerificationChannel } from "../../lib/types/api.ts";
 
@@ -30,6 +39,11 @@ const channels: VerificationChannel[] = [
 ];
 const usernameChannels = ["discord", "telegram", "signal"] as const;
 type UsernameChannel = (typeof usernameChannels)[number];
+type PendingVerification = {
+  channel: UsernameChannel;
+  identifier: string;
+  code: string;
+};
 
 function isUsernameChannel(channel: string): channel is UsernameChannel {
   return (
@@ -37,23 +51,43 @@ function isUsernameChannel(channel: string): channel is UsernameChannel {
   );
 }
 
-export function CommunicationPage() {
+export type CommunicationPageApi = Pick<
+  typeof api,
+  | "checkChannelVerified"
+  | "confirmChannelVerification"
+  | "describeServer"
+  | "getNotificationHistory"
+  | "getNotificationPrefs"
+  | "updateNotificationPrefs"
+>;
+
+interface CommunicationPageProps {
+  apiClient?: CommunicationPageApi;
+  refreshAccountSession?: () => Promise<unknown>;
+}
+
+export function CommunicationPage({
+  apiClient = api,
+  refreshAccountSession = refreshSession,
+}: CommunicationPageProps = {}) {
   const session = useSession();
+  const t = useTranslation();
   const loadCommunication = useCallback(async () => {
     const [prefs, server, history] = await Promise.all([
-      api.getNotificationPrefs(session.accessJwt),
-      api.describeServer(),
-      api.getNotificationHistory(session.accessJwt),
+      apiClient.getNotificationPrefs(session.accessJwt),
+      apiClient.describeServer(),
+      apiClient.getNotificationHistory(session.accessJwt),
     ]);
     return { prefs, server, history: history.notifications };
-  }, [session.accessJwt]);
+  }, [apiClient, session.accessJwt]);
   const {
     data: communicationData,
     error: communicationError,
     loading: communicationLoading,
     reload: reloadCommunication,
   } = useAsync(loadCommunication);
-  const [channel, setChannel] = useState<VerificationChannel>("email");
+  const [preferredChannel, setPreferredChannel] =
+    useState<VerificationChannel>("email");
   const [usernames, setUsernames] = useState({
     discord: "",
     telegram: "",
@@ -64,106 +98,145 @@ export function CommunicationPage() {
     telegram: "",
     signal: "",
   });
-  const [verifications, setVerifications] = useState<
-    Array<{ channel: VerificationChannel; identifier: string; code: string }>
-  >([]);
+  const [verifications, setVerifications] = useState<PendingVerification[]>([]);
+  const [verificationDialogChannel, setVerificationDialogChannel] =
+    useState<UsernameChannel | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{
     tone: "success" | "error";
     text: string;
   } | null>(null);
+  const verificationCodeInput = useRef<HTMLInputElement>(null);
+  const [synchronizedData, setSynchronizedData] =
+    useState<typeof communicationData>(null);
 
-  useEffect(() => {
-    if (!communicationData) return;
-    const loaded = communicationData;
+  if (communicationData && synchronizedData !== communicationData) {
     const loadedUsernames = {
-      discord: loaded.prefs.discordUsername ?? "",
-      telegram: loaded.prefs.telegramUsername ?? "",
-      signal: loaded.prefs.signalUsername ?? "",
+      discord: communicationData.prefs.discordUsername ?? "",
+      telegram: communicationData.prefs.telegramUsername ?? "",
+      signal: communicationData.prefs.signalUsername ?? "",
     };
-    queueMicrotask(() => {
-      setChannel(loaded.prefs.preferredChannel);
-      setUsernames(loadedUsernames);
-      setSavedUsernames(loadedUsernames);
-      setVerifications([
-        ...(!loaded.prefs.discordVerified && loadedUsernames.discord
-          ? [
-              {
-                channel: "discord" as const,
-                identifier: loadedUsernames.discord,
-                code: "",
-              },
-            ]
-          : []),
-        ...(!loaded.prefs.telegramVerified && loadedUsernames.telegram
-          ? [
-              {
-                channel: "telegram" as const,
-                identifier: loadedUsernames.telegram,
-                code: "",
-              },
-            ]
-          : []),
-        ...(!loaded.prefs.signalVerified && loadedUsernames.signal
-          ? [
-              {
-                channel: "signal" as const,
-                identifier: loadedUsernames.signal,
-                code: "",
-              },
-            ]
-          : []),
-      ]);
-    });
-  }, [communicationData]);
+    setSynchronizedData(communicationData);
+    setPreferredChannel(communicationData.prefs.preferredChannel);
+    setUsernames(loadedUsernames);
+    setSavedUsernames(loadedUsernames);
+    setVerifications([
+      ...(!communicationData.prefs.discordVerified && loadedUsernames.discord
+        ? [
+            {
+              channel: "discord" as const,
+              identifier: loadedUsernames.discord,
+              code: "",
+            },
+          ]
+        : []),
+      ...(!communicationData.prefs.telegramVerified && loadedUsernames.telegram
+        ? [
+            {
+              channel: "telegram" as const,
+              identifier: loadedUsernames.telegram,
+              code: "",
+            },
+          ]
+        : []),
+      ...(!communicationData.prefs.signalVerified && loadedUsernames.signal
+        ? [
+            {
+              channel: "signal" as const,
+              identifier: loadedUsernames.signal,
+              code: "",
+            },
+          ]
+        : []),
+    ]);
+  }
+
+  const activeVerification = verificationDialogChannel
+    ? verifications.find(({ channel }) => channel === verificationDialogChannel)
+    : undefined;
+
+  const channelLabel = useCallback(
+    (channel: VerificationChannel) => {
+      switch (channel) {
+        case "email":
+          return t("register.email");
+        case "discord":
+          return t("register.discord");
+        case "telegram":
+          return t("register.telegram");
+        case "signal":
+          return t("register.signal");
+      }
+    },
+    [t],
+  );
 
   useEffect(() => {
-    if (!communicationData || verifications.length === 0) return;
-    const botVerifications = verifications.filter(
-      ({ channel: pendingChannel }) => hasBotVerification(pendingChannel),
-    );
-    if (botVerifications.length === 0) return;
+    if (!activeVerification || !hasBotVerification(activeVerification.channel))
+      return;
+
     let checking = false;
     const interval = globalThis.setInterval(async () => {
       if (checking) return;
       checking = true;
       try {
-        const results = await Promise.all(
-          botVerifications.map(async (pending) => ({
-            pending,
-            result: await api.checkChannelVerified(
-              session.did,
-              pending.channel,
-            ),
-          })),
+        const result = await apiClient.checkChannelVerified(
+          session.did,
+          activeVerification.channel,
         );
-        const completedChannels = new Set(
-          results
-            .filter(({ result }) => result.verified)
-            .map(({ pending }) => pending.channel),
+        if (!result.verified) return;
+        setVerifications((current) =>
+          current.filter(
+            ({ channel }) => channel !== activeVerification.channel,
+          ),
         );
-        if (completedChannels.size > 0) {
-          setVerifications((current) =>
-            current.filter(
-              ({ channel: pendingChannel }) =>
-                !completedChannels.has(pendingChannel),
-            ),
-          );
-          setMessage({
-            tone: "success",
-            text: `${[...completedChannels].join(" and ")} verified.`,
-          });
-          await refreshSession();
-          await reloadCommunication();
-        }
+        setVerificationDialogChannel(null);
+        setMessage({
+          tone: "success",
+          text: t("comms.verifiedSuccess", {
+            channel: channelLabel(activeVerification.channel),
+          }),
+        });
+        await refreshAccountSession();
+        await reloadCommunication();
       } catch {
-        // Polling is best effort. The next interval retries without interrupting the form.
+        // Bot verification is asynchronous. The next check can recover.
       } finally {
         checking = false;
       }
     }, 3000);
     return () => globalThis.clearInterval(interval);
-  }, [communicationData, reloadCommunication, session.did, verifications]);
+  }, [
+    activeVerification,
+    apiClient,
+    channelLabel,
+    refreshAccountSession,
+    reloadCommunication,
+    session.did,
+    t,
+  ]);
+
+  function channelInputLabel(channel: UsernameChannel) {
+    switch (channel) {
+      case "discord":
+        return t("register.discordUsername");
+      case "telegram":
+        return t("register.telegramUsername");
+      case "signal":
+        return t("register.signalUsername");
+    }
+  }
+
+  function channelPlaceholder(channel: UsernameChannel) {
+    switch (channel) {
+      case "discord":
+        return t("register.discordUsernamePlaceholder");
+      case "telegram":
+        return t("register.telegramUsernamePlaceholder");
+      case "signal":
+        return t("register.signalUsernamePlaceholder");
+    }
+  }
 
   function isAvailable(candidate: VerificationChannel) {
     return (
@@ -174,7 +247,8 @@ export function CommunicationPage() {
   function isVerified(candidate: VerificationChannel): boolean {
     if (candidate === "email") return true;
     const prefs = communicationData?.prefs;
-    if (!prefs) return false;
+    if (!prefs || usernames[candidate] !== savedUsernames[candidate])
+      return false;
     const verifiedByChannel: Record<UsernameChannel, boolean> = {
       discord: prefs.discordVerified,
       telegram: prefs.telegramVerified,
@@ -183,67 +257,81 @@ export function CommunicationPage() {
     return verifiedByChannel[candidate];
   }
 
-  async function save(event: React.FormEvent) {
+  function channelStatus(channel: UsernameChannel) {
+    if (!isAvailable(channel)) return t("comms.unavailable");
+    if (!usernames[channel]) return t("comms.notConfigured");
+    return isVerified(channel) ? t("comms.verified") : t("comms.notVerified");
+  }
+
+  function channelDescription(channel: UsernameChannel) {
+    if (!isAvailable(channel)) return t("comms.notConfiguredOnServer");
+    if (!usernames[channel]) return t("comms.configureToEnable");
+    return undefined;
+  }
+
+  async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setMessage(null);
     try {
-      const result = await api.updateNotificationPrefs(session.accessJwt, {
-        preferredChannel: channel,
-        ...getChangedMessagingUsernames(usernames, savedUsernames),
-      });
+      const result = await apiClient.updateNotificationPrefs(
+        session.accessJwt,
+        {
+          preferredChannel,
+          ...getChangedMessagingUsernames(usernames, savedUsernames),
+        },
+      );
       const required = result.verificationRequired
         .filter(isUsernameChannel)
-        .map((pendingChannel) => ({
-          channel: pendingChannel,
-          identifier: usernames[pendingChannel],
+        .map((channel) => ({
+          channel,
+          identifier: usernames[channel],
           code: "",
         }));
       setVerifications(required);
+      setVerificationDialogChannel(required[0]?.channel ?? null);
       setMessage({
         tone: "success",
         text: required.length
-          ? "Saved. Complete the verification steps below."
-          : "Notification settings saved.",
+          ? t("comms.verificationRequired")
+          : t("comms.preferencesSaved"),
       });
-      await refreshSession();
+      await refreshAccountSession();
       await reloadCommunication();
     } catch (caught) {
       setMessage({
         tone: "error",
         text:
-          caught instanceof ApiError
-            ? caught.message
-            : "Could not save notification settings.",
+          caught instanceof ApiError ? caught.message : t("comms.failedToSave"),
       });
     } finally {
       setBusy(false);
     }
   }
 
-  async function confirmVerification(event: React.FormEvent) {
+  async function confirmVerification(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget as HTMLFormElement);
-    const pendingChannel = form.get("channel") as VerificationChannel;
-    const verify = verifications.find(
-      ({ channel: itemChannel }) => itemChannel === pendingChannel,
-    );
-    if (!verify) return;
+    if (!activeVerification) return;
     setBusy(true);
+    setMessage(null);
     try {
-      await api.confirmChannelVerification(
+      await apiClient.confirmChannelVerification(
         session.accessJwt,
-        verify.channel,
-        verify.identifier,
-        verify.code,
+        activeVerification.channel,
+        activeVerification.identifier,
+        activeVerification.code,
       );
       setVerifications((current) =>
-        current.filter(
-          ({ channel: itemChannel }) => itemChannel !== verify.channel,
-        ),
+        current.filter(({ channel }) => channel !== activeVerification.channel),
       );
-      setMessage({ tone: "success", text: `${verify.channel} verified.` });
-      await refreshSession();
+      setVerificationDialogChannel(null);
+      setMessage({
+        tone: "success",
+        text: t("comms.verifiedSuccess", {
+          channel: channelLabel(activeVerification.channel),
+        }),
+      });
+      await refreshAccountSession();
       await reloadCommunication();
     } catch (caught) {
       setMessage({
@@ -251,172 +339,294 @@ export function CommunicationPage() {
         text:
           caught instanceof ApiError
             ? caught.message
-            : "The code was not accepted.",
+            : t("comms.failedToVerify"),
       });
     } finally {
       setBusy(false);
     }
+  }
+
+  function updateVerificationCode(code: string) {
+    if (!activeVerification) return;
+    setVerifications((current) =>
+      current.map((verification) =>
+        verification.channel === activeVerification.channel
+          ? { ...verification, code }
+          : verification,
+      ),
+    );
   }
 
   const loaded = communicationData;
+  const hasUnsavedChanges = loaded
+    ? preferredChannel !== loaded.prefs.preferredChannel ||
+      usernameChannels.some(
+        (channel) => usernames[channel] !== savedUsernames[channel],
+      )
+    : false;
+  const heading = (
+    <PageHeading
+      title={t("dashboard.navComms")}
+      description={t("comms.description")}
+    />
+  );
+
+  if (communicationLoading && !loaded) {
+    return (
+      <div className="mx-auto grid w-full max-w-[52rem] gap-6" aria-busy="true">
+        {heading}
+        <SettingsSection title={t("comms.channelConfiguration")}>
+          <SettingsRow label={t("comms.preferredChannel")} />
+          <SettingsRow label={t("register.email")} />
+          <SettingsRow label={t("register.discord")} />
+        </SettingsSection>
+      </div>
+    );
+  }
+
+  if (!loaded) {
+    return (
+      <div className="mx-auto grid w-full max-w-[52rem] gap-6">
+        {heading}
+        <Alert tone="error">
+          {communicationError ?? t("comms.failedToLoad")}
+        </Alert>
+      </div>
+    );
+  }
+
   return (
-    <div className="grid gap-6">
-      <PageHeading
-        title="Communication"
-        description="Choose where account and security messages are sent."
-      />
-      {message ? <Alert tone={message.tone}>{message.text}</Alert> : null}
+    <div className="mx-auto grid w-full max-w-[52rem] gap-6">
+      {heading}
+      {message && !(activeVerification && message.tone === "error") ? (
+        <Alert tone={message.tone}>{message.text}</Alert>
+      ) : null}
       {communicationError ? (
         <Alert tone="error">{communicationError}</Alert>
       ) : null}
-      {communicationLoading ? (
-        <Loading />
-      ) : loaded ? (
-        <>
-          <Card className="p-5">
-            <form className="grid max-w-2xl gap-5" onSubmit={save}>
-              <Field label="Preferred channel">
-                <Select
-                  value={channel}
-                  onChange={(event) =>
-                    setChannel(event.target.value as VerificationChannel)
-                  }
-                >
-                  {channels.map((item) => (
-                    <option
-                      key={item}
-                      value={item}
-                      disabled={
-                        !isAvailable(item) ||
-                        (item !== "email" && !usernames[item])
-                      }
-                    >
-                      {item[0].toUpperCase() + item.slice(1)}
-                      {!isAvailable(item)
-                        ? " — unavailable"
-                        : item !== "email" && !isVerified(item)
-                          ? " — not verified"
-                          : ""}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Email">
-                <Input value={loaded.prefs.email} disabled />
-              </Field>
-              {usernameChannels.filter(isAvailable).map((item) => (
-                <Field
-                  key={item}
-                  label={`${item[0].toUpperCase() + item.slice(1)} username`}
-                  hint={isVerified(item) ? "Verified" : undefined}
-                >
-                  <Input
-                    value={usernames[item]}
-                    onChange={(event) =>
-                      setUsernames({ ...usernames, [item]: event.target.value })
+
+      <form id="communication-preferences" onSubmit={save}>
+        <SettingsSection
+          title={t("comms.channelConfiguration")}
+          description={t("comms.channelConfigurationDescription")}
+        >
+          <SettingsRow
+            label={t("comms.preferredChannel")}
+            value={
+              <Select
+                compact
+                aria-label={t("comms.preferredChannel")}
+                value={preferredChannel}
+                disabled={busy}
+                onChange={(event) =>
+                  setPreferredChannel(event.target.value as VerificationChannel)
+                }
+              >
+                {channels.map((channel) => (
+                  <option
+                    key={channel}
+                    value={channel}
+                    disabled={
+                      !isAvailable(channel) ||
+                      (channel !== "email" && !usernames[channel])
                     }
-                  />
-                </Field>
-              ))}
-              <Button className="justify-self-start" disabled={busy}>
-                {busy ? "Saving" : "Save"}
-              </Button>
-            </form>
-          </Card>
-          {verifications.map((verify) => (
-            <Card className="p-5" key={verify.channel}>
-              <h2 className="font-mono font-semibold text-ctp-text">
-                Verify {verify.channel}
-              </h2>
-              {hasBotVerification(verify.channel) ? (
-                <div className="mt-4">
-                  <ChannelVerificationPrompt
-                    channel={verify.channel}
-                    handle={session.handle}
-                    server={loaded.server}
-                  />
-                </div>
-              ) : (
-                <form
-                  className="mt-4 grid max-w-md gap-4"
-                  onSubmit={confirmVerification}
-                >
-                  <input type="hidden" name="channel" value={verify.channel} />
-                  <p className="text-sm text-ctp-subtext0">
-                    Enter the code sent to {verify.identifier}.
-                  </p>
-                  <Field label="Verification code">
+                  >
+                    {channelLabel(channel)}
+                    {!isAvailable(channel)
+                      ? ` (${t("comms.unavailable")})`
+                      : channel !== "email" && !isVerified(channel)
+                        ? ` (${t("comms.notVerified")})`
+                        : ""}
+                  </option>
+                ))}
+              </Select>
+            }
+          />
+          <SettingsRow
+            label={channelLabel("email")}
+            value={loaded.prefs.email}
+            technical
+            stackActionOnMobile
+            action={
+              <div className="flex flex-wrap gap-2 sm:w-36 sm:justify-end">
+                {preferredChannel === "email" ? (
+                  <SettingsTag tone="accent">{t("comms.primary")}</SettingsTag>
+                ) : null}
+                <SettingsTag>{t("comms.verified")}</SettingsTag>
+              </div>
+            }
+          />
+          {usernameChannels.map((channel) => {
+            const pendingVerification = verifications.some(
+              (verification) => verification.channel === channel,
+            );
+            return (
+              <SettingsRow
+                key={channel}
+                label={channelLabel(channel)}
+                value={
+                  <label>
+                    <span className="sr-only">
+                      {channelInputLabel(channel)}
+                    </span>
                     <Input
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      value={verify.code}
+                      className="py-2.5 font-mono text-sm"
+                      value={usernames[channel]}
+                      placeholder={channelPlaceholder(channel)}
+                      disabled={busy || !isAvailable(channel)}
+                      autoComplete="off"
                       onChange={(event) =>
-                        setVerifications((current) =>
-                          current.map((item) =>
-                            item.channel === verify.channel
-                              ? { ...item, code: event.target.value }
-                              : item,
-                          ),
-                        )
+                        setUsernames((current) => ({
+                          ...current,
+                          [channel]: event.target.value,
+                        }))
                       }
                     />
-                  </Field>
-                  <div className="flex gap-2">
-                    <Button disabled={busy || !verify.code.trim()}>
-                      Verify
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() =>
-                        setVerifications((current) =>
-                          current.filter(
-                            (item) => item.channel !== verify.channel,
-                          ),
-                        )
-                      }
+                  </label>
+                }
+                description={channelDescription(channel)}
+                stackActionOnMobile
+                action={
+                  <div className="flex flex-wrap items-center gap-1 sm:w-36 sm:justify-end">
+                    {preferredChannel === channel ? (
+                      <SettingsTag tone="accent">
+                        {t("comms.primary")}
+                      </SettingsTag>
+                    ) : null}
+                    <SettingsTag
+                      tone={isVerified(channel) ? "accent" : "neutral"}
                     >
-                      Cancel
-                    </Button>
+                      {channelStatus(channel)}
+                    </SettingsTag>
+                    {pendingVerification && !isVerified(channel) ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="compact"
+                        aria-haspopup="dialog"
+                        onClick={() => setVerificationDialogChannel(channel)}
+                      >
+                        {t("common.verify")}
+                      </Button>
+                    ) : null}
                   </div>
-                </form>
-              )}
-            </Card>
-          ))}
-          <section className="grid gap-3">
-            <h2 className="font-mono text-sm font-semibold text-ctp-lavender">
-              Message history
-            </h2>
-            {loaded.history.length === 0 ? (
-              <EmptyState>No messages have been sent.</EmptyState>
-            ) : (
-              <Card className="divide-y divide-ctp-surface0">
-                {loaded.history.map((item) => (
-                  <article
-                    key={`${item.createdAt}-${item.channel}-${item.notificationType}-${item.subject ?? ""}`}
-                    className="p-4"
-                  >
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <h3 className="font-medium text-ctp-text">
-                        {item.subject || item.notificationType}
-                      </h3>
-                      <time className="text-xs text-ctp-overlay1">
-                        {formatDateTime(item.createdAt)}
-                      </time>
-                    </div>
-                    <p className="mt-1 text-xs tracking-wide text-ctp-overlay1 uppercase">
-                      {item.channel} · {item.status}
-                    </p>
-                    <p className="mt-3 text-sm leading-6 whitespace-pre-wrap text-ctp-subtext0">
-                      {item.body}
-                    </p>
-                  </article>
-                ))}
-              </Card>
-            )}
-          </section>
-        </>
-      ) : null}
+                }
+              />
+            );
+          })}
+        </SettingsSection>
+        <div className="mt-3 flex justify-end px-1">
+          <Button type="submit" disabled={busy || !hasUnsavedChanges}>
+            {busy ? t("common.saving") : t("common.save")}
+          </Button>
+        </div>
+      </form>
+
+      <SettingsSection title={t("comms.messageHistory")}>
+        {loaded.history.map((item) => (
+          <SettingsItem
+            key={`${item.createdAt}-${item.channel}-${item.notificationType}-${item.subject ?? ""}`}
+            title={
+              <span className="flex flex-wrap items-center gap-2">
+                <span>{item.subject || item.notificationType}</span>
+                <SettingsTag
+                  tone={
+                    item.status.toLowerCase() === "delivered"
+                      ? "accent"
+                      : "neutral"
+                  }
+                >
+                  {item.status}
+                </SettingsTag>
+              </span>
+            }
+            description={
+              <span className="grid gap-2">
+                <span className="font-mono">
+                  {channelLabel(item.channel)} ·{" "}
+                  {formatDateTime(item.createdAt)}
+                </span>
+                <span className="text-sm leading-6 whitespace-pre-wrap text-ctp-subtext0">
+                  {item.body}
+                </span>
+              </span>
+            }
+          />
+        ))}
+        {loaded.history.length === 0 ? (
+          <SettingsItem title={t("comms.noMessages")} />
+        ) : null}
+      </SettingsSection>
+
+      <SettingsDialog
+        open={Boolean(activeVerification)}
+        title={
+          activeVerification
+            ? t("comms.verifyChannel", {
+                channel: channelLabel(activeVerification.channel),
+              })
+            : t("common.verify")
+        }
+        description={
+          activeVerification
+            ? t("comms.verifyDescription", {
+                identifier: activeVerification.identifier,
+              })
+            : undefined
+        }
+        initialFocusRef={
+          activeVerification && !hasBotVerification(activeVerification.channel)
+            ? verificationCodeInput
+            : undefined
+        }
+        maxWidth="sm"
+        closeDisabled={busy}
+        onClose={() => setVerificationDialogChannel(null)}
+      >
+        {activeVerification && message?.tone === "error" ? (
+          <div className="mb-4">
+            <Alert tone="error">{message.text}</Alert>
+          </div>
+        ) : null}
+        {activeVerification ? (
+          hasBotVerification(activeVerification.channel) ? (
+            <ChannelVerificationPrompt
+              channel={activeVerification.channel}
+              handle={session.handle}
+              server={loaded.server}
+            />
+          ) : (
+            <form className="grid gap-4" onSubmit={confirmVerification}>
+              <Field label={t("settings.verificationCode")}>
+                <Input
+                  ref={verificationCodeInput}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={activeVerification.code}
+                  placeholder={t("comms.verifyCodePlaceholder")}
+                  disabled={busy}
+                  onChange={(event) =>
+                    updateVerificationCode(event.target.value)
+                  }
+                />
+              </Field>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => setVerificationDialogChannel(null)}
+                >
+                  {t("common.cancel")}
+                </Button>
+                <Button disabled={busy || !activeVerification.code.trim()}>
+                  {busy ? t("common.verifying") : t("common.verify")}
+                </Button>
+              </div>
+            </form>
+          )
+        ) : null}
+      </SettingsDialog>
     </div>
   );
 }
