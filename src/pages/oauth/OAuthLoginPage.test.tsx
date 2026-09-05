@@ -19,7 +19,9 @@ describe("OAuth login", () => {
       "",
       `/?request_uri=${encodeURIComponent(requestUri)}`,
     );
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn<
+      (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+    >(async (input) => {
       const url = String(input);
       if (url.startsWith("/oauth/authorize?"))
         return json({ client_name: "Test client" });
@@ -67,28 +69,27 @@ describe("OAuth login", () => {
       "",
       `/?request_uri=${encodeURIComponent(requestUri)}`,
     );
-    const fetchMock = vi.fn(
-      async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = String(input);
-        if (url.startsWith("/oauth/authorize?") && !init?.method)
-          return json({});
-        if (url === "/oauth/sso/providers") return json({ providers: [] });
-        if (url.startsWith("/oauth/security-status?"))
-          return json({ isDelegated: false });
-        if (url === "/oauth/authorize" && init?.method === "POST") {
-          return json(
-            {
-              error: "account_not_verified",
-              did: "did:plc:alice",
-              handle: "alice.example.com",
-              channel: "email",
-            },
-            403,
-          );
-        }
-        throw new Error(`Unexpected request: ${url}`);
-      },
-    );
+    const fetchMock = vi.fn<
+      (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+    >(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.startsWith("/oauth/authorize?") && !init?.method) return json({});
+      if (url === "/oauth/sso/providers") return json({ providers: [] });
+      if (url.startsWith("/oauth/security-status?"))
+        return json({ isDelegated: false });
+      if (url === "/oauth/authorize" && init?.method === "POST") {
+        return json(
+          {
+            error: "account_not_verified",
+            did: "did:plc:alice",
+            handle: "alice.example.com",
+            channel: "email",
+          },
+          403,
+        );
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     render(
@@ -129,22 +130,22 @@ describe("OAuth login", () => {
       "",
       `/?request_uri=${encodeURIComponent(requestUri)}`,
     );
-    const fetchMock = vi.fn(
-      async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = String(input);
-        if (url.startsWith("/oauth/authorize?") && !init?.method) {
-          return json({ client_name: "Test client" });
-        }
-        if (url === "/oauth/sso/providers") return json({ providers: [] });
-        if (url === "/oauth/authorize" && init?.method === "POST") {
-          return json({
-            next: "delegation",
-            redirect: `/app/oauth/delegation?request_uri=${encodeURIComponent(requestUri)}&delegated_did=did%3Aplc%3Aalice`,
-          });
-        }
-        throw new Error(`Unexpected request: ${url}`);
-      },
-    );
+    const fetchMock = vi.fn<
+      (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+    >(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.startsWith("/oauth/authorize?") && !init?.method) {
+        return json({ client_name: "Test client" });
+      }
+      if (url === "/oauth/sso/providers") return json({ providers: [] });
+      if (url === "/oauth/authorize" && init?.method === "POST") {
+        return json({
+          next: "delegation",
+          redirect: `/app/oauth/delegation?request_uri=${encodeURIComponent(requestUri)}&delegated_did=did%3Aplc%3Aalice`,
+        });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     render(

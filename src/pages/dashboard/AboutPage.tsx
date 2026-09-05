@@ -1,4 +1,4 @@
-import { version as reactVersion, useState } from "react";
+import { version as reactVersion, useCallback, useState } from "react";
 import vitePackage from "vite/package.json";
 import {
   Alert,
@@ -48,7 +48,7 @@ function AboutSection({ title, rows }: { title: string; rows: AboutRow[] }) {
 export function AboutPage() {
   const session = useSession();
   const t = useTranslation();
-  const resource = useAsync(async () => {
+  const loadAbout = useCallback(async () => {
     const [server, stats] = await Promise.all([
       api.describeServer().catch(() => null),
       session.isAdmin
@@ -57,6 +57,7 @@ export function AboutPage() {
     ]);
     return { server, stats };
   }, [session.accessJwt, session.isAdmin]);
+  const resource = useAsync(loadAbout);
   const [copyError, setCopyError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 

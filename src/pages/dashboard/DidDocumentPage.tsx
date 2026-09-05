@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   Alert,
   Button,
@@ -16,26 +16,26 @@ import type { DidDocument } from "../../lib/types/api.ts";
 export function DidDocumentPage() {
   const t = useTranslation();
   const session = useSession();
-  const document = useAsync(
+  const loadDocument = useCallback(
     () => api.getDidDocument(session.accessJwt),
     [session.accessJwt],
   );
-  const [source, setSource] = useState("");
+  const document = useAsync(loadDocument);
+  const [source, setSource] = useState<string | null>(null);
   const [message, setMessage] = useState<{
     tone: "success" | "error";
     text: string;
   } | null>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (document.data) setSource(JSON.stringify(document.data, null, 2));
-  }, [document.data]);
+  const documentSource =
+    source ?? (document.data ? JSON.stringify(document.data, null, 2) : "");
 
   async function save() {
     setSaving(true);
     setMessage(null);
     try {
-      const next = JSON.parse(source) as DidDocument;
+      const next = JSON.parse(documentSource) as DidDocument;
       const atprotoService = next.service.find((service) =>
         service.id.endsWith("#atproto_pds"),
       );
@@ -65,7 +65,10 @@ export function DidDocumentPage() {
         title={t("dashboard.navDidDocument")}
         description={t("didEditor.helpText")}
         actions={
-          <Button onClick={() => void save()} disabled={saving || !source}>
+          <Button
+            onClick={() => void save()}
+            disabled={saving || !documentSource}
+          >
             {saving ? t("common.saving") : t("didEditor.save")}
           </Button>
         }
@@ -77,7 +80,7 @@ export function DidDocumentPage() {
       ) : (
         <Card className="p-4">
           <Textarea
-            value={source}
+            value={documentSource}
             onChange={(event) => setSource(event.target.value)}
             className="min-h-[32rem] border-0 bg-ctp-crust"
             spellCheck={false}

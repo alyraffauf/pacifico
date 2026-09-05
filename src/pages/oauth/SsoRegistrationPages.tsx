@@ -56,8 +56,8 @@ export function SsoRegisterPage() {
 
   useEffect(() => {
     void ensureRequestUri()
-      .then(async (requestUri) => {
-        if (!requestUri)
+      .then(async (ensuredRequestUri) => {
+        if (!ensuredRequestUri)
           throw new Error("The registration request is missing.");
         const data = await readJson<{ providers?: SsoProvider[] }>(
           await fetch("/oauth/sso/providers"),
@@ -82,7 +82,7 @@ export function SsoRegisterPage() {
     setInitiating(provider);
     setError(null);
     try {
-      let requestUri = getRequestUriFromUrl();
+      let currentRequestUri = getRequestUriFromUrl();
       let response = await fetch("/oauth/sso/initiate", {
         method: "POST",
         headers: {
@@ -92,13 +92,13 @@ export function SsoRegisterPage() {
         body: JSON.stringify({
           provider,
           action: "register",
-          request_uri: requestUri,
+          request_uri: currentRequestUri,
         }),
       });
       if (!response.ok) {
-        requestUri = await getOAuthRequestUri("create");
+        currentRequestUri = await getOAuthRequestUri("create");
         const url = new URL(globalThis.location.href);
-        url.searchParams.set("request_uri", requestUri);
+        url.searchParams.set("request_uri", currentRequestUri);
         globalThis.location.assign(url);
         return;
       }
@@ -188,9 +188,11 @@ export function SsoRegisterCompletePage() {
   const [externalDid, setExternalDid] = useState("");
   const [result, setResult] = useState<RegistrationResult | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(token));
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    token ? null : "This registration link is missing or expired.",
+  );
   const fullHandle =
     handle.includes(".") || !domain
       ? handle.trim()
@@ -198,8 +200,6 @@ export function SsoRegisterCompletePage() {
 
   useEffect(() => {
     if (!token) {
-      setError("This registration link is missing or expired.");
-      setLoading(false);
       return;
     }
     let active = true;

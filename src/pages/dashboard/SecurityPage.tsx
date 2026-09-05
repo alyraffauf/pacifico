@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   IconCopy,
   IconDeviceLaptop,
@@ -64,7 +64,7 @@ async function optional<T>(
 
 export function SecurityPage() {
   const session = useSession();
-  const security = useAsync(async () => {
+  const loadSecurity = useCallback(async () => {
     const [
       password,
       totp,
@@ -113,6 +113,7 @@ export function SecurityPage() {
       ].filter((value): value is string => Boolean(value)),
     };
   }, [session.accessJwt]);
+  const security = useAsync(loadSecurity);
 
   const [message, setMessage] = useState<SecurityMessage | null>(null);
   const [saving, setSaving] = useState(false);
@@ -668,7 +669,6 @@ export function SecurityPage() {
                       onChange={(event) =>
                         setEditedPasskeyName(event.target.value)
                       }
-                      autoFocus
                     />
                     <Button onClick={() => void renamePasskey()}>Save</Button>
                     <Button
@@ -741,7 +741,6 @@ export function SecurityPage() {
                       onChange={(event) =>
                         setEditedDeviceName(event.target.value)
                       }
-                      autoFocus
                     />
                     <Button onClick={() => void renameDevice()}>Save</Button>
                     <Button

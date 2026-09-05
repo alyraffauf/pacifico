@@ -1,6 +1,6 @@
-declare const __brand: unique symbol;
+declare const brand: unique symbol;
 
-type Brand<T, B extends string> = T & { readonly [__brand]: B };
+type Brand<T, B extends string> = T & { readonly [brand]: B };
 
 export type Did = Brand<string, "Did">;
 export type DidPlc = Brand<Did, "DidPlc">;

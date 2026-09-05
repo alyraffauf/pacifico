@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { _testReset } from "../auth.ts";
+import { resetAuthForTest } from "../auth.ts";
 import { persistSsoRegistrationSession } from "./sso-session.ts";
 
-beforeEach(() => _testReset());
+beforeEach(() => resetAuthForTest());
 
 describe("SSO registration sessions", () => {
   it("stores complete sessions under the Tranquil session key", () => {

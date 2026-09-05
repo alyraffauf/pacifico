@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Alert,
@@ -35,7 +35,7 @@ export function SettingsPage() {
   const session = useSession();
   const navigate = useNavigate();
   const t = useTranslation();
-  const preferences = useAsync(async () => {
+  const loadPreferences = useCallback(async () => {
     const [legacy, emailStatus, server] = await Promise.all([
       api.getLegacyLoginPreference(session.accessJwt),
       api
@@ -48,6 +48,7 @@ export function SettingsPage() {
     ]);
     return { legacy, emailStatus, server };
   }, [session.accessJwt]);
+  const preferences = useAsync(loadPreferences);
   const [handle, setHandle] = useState("");
   const [customHandle, setCustomHandle] = useState(false);
   const [selectedDomain, setSelectedDomain] = useState("");
@@ -68,31 +69,37 @@ export function SettingsPage() {
   const emailAvailabilityRequest = useRef(0);
 
   useEffect(() => {
-    setHandle("");
-    setCustomHandle(false);
-    setSelectedDomain("");
-    setEmail("");
-    setEmailInUse(false);
-    setEmailToken("");
-    setEmailTokenRequired(false);
-    setEmailUpdateAuthorized(false);
-    automaticEmailCompletion.current = null;
-    emailAvailabilityRequest.current += 1;
+    const accessJwt = session.accessJwt;
+    queueMicrotask(() => {
+      if (accessJwt !== session.accessJwt) return;
+      setHandle("");
+      setCustomHandle(false);
+      setSelectedDomain("");
+      setEmail("");
+      setEmailInUse(false);
+      setEmailToken("");
+      setEmailTokenRequired(false);
+      setEmailUpdateAuthorized(false);
+      automaticEmailCompletion.current = null;
+      emailAvailabilityRequest.current += 1;
+    });
   }, [session.accessJwt]);
 
   useEffect(() => {
     if (!preferences.data) return;
-    setLegacyLogin(preferences.data.legacy.allowLegacyLogin);
-    setSelectedDomain(
-      (current) =>
-        current || preferences.data?.server?.availableUserDomains[0] || "",
-    );
-    const status = preferences.data.emailStatus;
-    if (!status.pending) return;
-    setEmailTokenRequired(true);
-    setEmailUpdateAuthorized(status.authorized);
-    if (status.newEmail) setEmail(status.newEmail);
-  }, [preferences.data, session.accessJwt]);
+    const loaded = preferences.data;
+    queueMicrotask(() => {
+      setLegacyLogin(loaded.legacy.allowLegacyLogin);
+      setSelectedDomain(
+        (current) => current || loaded.server?.availableUserDomains[0] || "",
+      );
+      const status = loaded.emailStatus;
+      if (!status.pending) return;
+      setEmailTokenRequired(true);
+      setEmailUpdateAuthorized(status.authorized);
+      if (status.newEmail) setEmail(status.newEmail);
+    });
+  }, [preferences.data]);
 
   useEffect(() => {
     if (!emailTokenRequired || emailUpdateAuthorized) return;
@@ -508,8 +515,10 @@ export function SettingsPage() {
                 ))}
               </Select>
             </Field>
-            <label className="flex items-start gap-3 rounded border border-ctp-surface-1 p-4">
+            <div className="flex items-start gap-3 rounded border border-ctp-surface-1 p-4">
               <input
+                id="legacy-login"
+                aria-labelledby="legacy-login-label legacy-login-description"
                 className="mt-1 size-4 accent-ctp-lavender"
                 type="checkbox"
                 checked={legacyLogin}
@@ -519,14 +528,20 @@ export function SettingsPage() {
                 }
               />
               <span>
-                <span className="block text-sm font-medium text-ctp-text">
+                <span
+                  id="legacy-login-label"
+                  className="block text-sm font-medium text-ctp-text"
+                >
                   {t("security.legacyLogin")}
                 </span>
-                <span className="mt-1 block text-xs leading-5 text-ctp-overlay-1">
+                <span
+                  id="legacy-login-description"
+                  className="mt-1 block text-xs leading-5 text-ctp-overlay-1"
+                >
                   {t("security.legacyLoginDescription")}
                 </span>
               </span>
-            </label>
+            </div>
           </div>
         </Card>
         <Card className="border-ctp-red/40 p-5">

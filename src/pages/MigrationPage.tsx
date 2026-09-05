@@ -1034,8 +1034,8 @@ export function MigrationPage() {
     null,
   );
   const [resumeBusy, setResumeBusy] = useState(false);
-  const inboundRef = useRef<InboundMigrationFlow | null>(null);
-  const offlineRef = useRef<OfflineInboundMigrationFlow | null>(null);
+  const [inboundFlow] = useState(() => createInboundMigrationFlow());
+  const [offlineFlow] = useState(() => createOfflineInboundMigrationFlow());
   const callbackHandled = useRef(false);
   const pendingMigrationChecked = useRef(false);
 
@@ -1049,13 +1049,12 @@ export function MigrationPage() {
       callbackHandled.current = true;
       globalThis.history.replaceState({}, "", "/app/migrate");
       if (error) {
-        setCallbackError(error);
+        queueMicrotask(() => setCallbackError(error));
         return;
       }
       if (!code || !state) return;
-      const flow = createInboundMigrationFlow();
-      inboundRef.current = flow;
-      setDirection("inbound");
+      const flow = inboundFlow;
+      queueMicrotask(() => setDirection("inbound"));
       void (async () => {
         const stored = loadMigrationState();
         if (stored?.direction === "inbound") await flow.resumeFromState(stored);
@@ -1076,25 +1075,29 @@ export function MigrationPage() {
       const info = getResumeInfo();
       if (info?.step === "success") clearMigrationState();
       else if (info)
-        setPendingResume({
-          direction: "inbound",
-          sourceHandle: info.sourceHandle,
-          targetHandle: info.targetHandle,
-          progressSummary: info.progressSummary,
-        });
+        queueMicrotask(() =>
+          setPendingResume({
+            direction: "inbound",
+            sourceHandle: info.sourceHandle,
+            targetHandle: info.targetHandle,
+            progressSummary: info.progressSummary,
+          }),
+        );
       return;
     }
     if (hasPendingOfflineMigration()) {
       const info = getOfflineResumeInfo();
       if (info?.step === "success") clearOfflineState();
       else if (info)
-        setPendingResume({
-          direction: "offline",
-          userDid: info.userDid,
-          targetHandle: info.targetHandle,
-        });
+        queueMicrotask(() =>
+          setPendingResume({
+            direction: "offline",
+            userDid: info.userDid,
+            targetHandle: info.targetHandle,
+          }),
+        );
     }
-  }, []);
+  }, [inboundFlow]);
 
   async function resumeMigration() {
     if (!pendingResume) return;
@@ -1103,15 +1106,11 @@ export function MigrationPage() {
       if (pendingResume.direction === "inbound") {
         const stored = loadMigrationState();
         if (!stored) throw new Error("The saved migration has expired.");
-        const flow = createInboundMigrationFlow();
-        await flow.resumeFromState(stored);
-        inboundRef.current = flow;
+        await inboundFlow.resumeFromState(stored);
         setDirection("inbound");
       } else {
-        const flow = createOfflineInboundMigrationFlow();
-        if (!flow.tryResume())
+        if (!offlineFlow.tryResume())
           throw new Error("The saved restore has expired.");
-        offlineRef.current = flow;
         setDirection("offline");
       }
       setPendingResume(null);
@@ -1129,8 +1128,8 @@ export function MigrationPage() {
   function startOver() {
     if (pendingResume?.direction === "offline") clearOfflineState();
     else clearMigrationState();
-    inboundRef.current = null;
-    offlineRef.current = null;
+    inboundFlow.reset();
+    offlineFlow.reset();
     setPendingResume(null);
     setCallbackError(null);
     setDirection("select");
@@ -1140,8 +1139,6 @@ export function MigrationPage() {
     flow: InboundMigrationFlow | OfflineInboundMigrationFlow,
   ) {
     flow.reset();
-    inboundRef.current = null;
-    offlineRef.current = null;
     setDirection("select");
   }
 
@@ -1210,14 +1207,20 @@ export function MigrationPage() {
       </MigrationFrame>
     );
   if (direction === "inbound") {
-    inboundRef.current ??= createInboundMigrationFlow();
-    const flow = inboundRef.current;
-    return <InboundWizard flow={flow} onBack={() => leaveWizard(flow)} />;
+    return (
+      <InboundWizard
+        flow={inboundFlow}
+        onBack={() => leaveWizard(inboundFlow)}
+      />
+    );
   }
   if (direction === "offline") {
-    offlineRef.current ??= createOfflineInboundMigrationFlow();
-    const flow = offlineRef.current;
-    return <OfflineWizard flow={flow} onBack={() => leaveWizard(flow)} />;
+    return (
+      <OfflineWizard
+        flow={offlineFlow}
+        onBack={() => leaveWizard(offlineFlow)}
+      />
+    );
   }
   return (
     <MigrationFrame
@@ -1228,7 +1231,7 @@ export function MigrationPage() {
         type="button"
         className="rounded border border-ctp-surface-1 bg-ctp-mantle p-5 text-left hover:border-ctp-lavender"
         onClick={() => {
-          inboundRef.current = createInboundMigrationFlow();
+          inboundFlow.reset();
           setDirection("inbound");
         }}
       >
@@ -1244,7 +1247,7 @@ export function MigrationPage() {
         type="button"
         className="rounded border border-ctp-surface-1 bg-ctp-mantle p-5 text-left hover:border-ctp-lavender"
         onClick={() => {
-          offlineRef.current = createOfflineInboundMigrationFlow();
+          offlineFlow.reset();
           setDirection("offline");
         }}
       >

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   Alert,
   Button,
@@ -33,10 +33,11 @@ function inviteStatus(
 export function InviteCodesPage() {
   const session = useSession();
   const t = useTranslation();
-  const resource = useAsync(
+  const loadInviteCodes = useCallback(
     () => api.getAccountInviteCodes(session.accessJwt),
     [session.accessJwt],
   );
+  const resource = useAsync(loadInviteCodes);
   const [createdCode, setCreatedCode] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);

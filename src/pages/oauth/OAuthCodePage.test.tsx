@@ -12,7 +12,7 @@ describe("OAuth verification codes", () => {
       "",
       `/?request_uri=${encodeURIComponent(requestUri)}`,
     );
-    const fetchMock = vi.fn(
+    const fetchMock = vi.fn<() => Promise<Response>>(
       async () =>
         new Response(JSON.stringify({ error: "test-stop" }), {
           status: 400,

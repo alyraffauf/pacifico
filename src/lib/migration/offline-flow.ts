@@ -232,8 +232,11 @@ export function createOfflineInboundMigrationFlow() {
 
       saveOfflineState(state);
       return true;
-    } catch (e) {
-      throw new Error(`Failed to parse rotation key: ${(e as Error).message}`);
+    } catch (error) {
+      throw new Error(
+        `Failed to parse rotation key: ${(error as Error).message}`,
+        { cause: error },
+      );
     }
   }
 

@@ -18,43 +18,43 @@ describe("SSO registration", () => {
       "",
       "/app/oauth/sso-register?token=test-token",
     );
-    const fetchMock = vi.fn(
-      async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = String(input);
-        if (url.startsWith("/oauth/sso/pending-registration?")) {
-          return json({
-            request_uri: "urn:request:test",
-            provider: "oidc",
-            provider_username: "alice",
-            provider_email: "alice@example.com",
-            provider_email_verified: true,
-          });
-        }
-        if (url === "/xrpc/com.atproto.server.describeServer") {
-          return json({
-            availableUserDomains: ["pds.test"],
-            inviteCodeRequired: false,
-            availableCommsChannels: ["email"],
-            selfHostedDidWebEnabled: true,
-          });
-        }
-        if (url.startsWith("/oauth/sso/check-handle-available?"))
-          return json({ available: true });
-        if (
-          url === "/oauth/sso/complete-registration" &&
-          init?.method === "POST"
-        ) {
-          return json({
-            did: "did:web:example.com",
-            handle: "alice.pds.test",
-            redirectUrl: "/app/verify",
-            appPassword: "test-password",
-            appPasswordName: "migration",
-          });
-        }
-        throw new Error(`Unexpected request: ${url}`);
-      },
-    );
+    const fetchMock = vi.fn<
+      (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+    >(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.startsWith("/oauth/sso/pending-registration?")) {
+        return json({
+          request_uri: "urn:request:test",
+          provider: "oidc",
+          provider_username: "alice",
+          provider_email: "alice@example.com",
+          provider_email_verified: true,
+        });
+      }
+      if (url === "/xrpc/com.atproto.server.describeServer") {
+        return json({
+          availableUserDomains: ["pds.test"],
+          inviteCodeRequired: false,
+          availableCommsChannels: ["email"],
+          selfHostedDidWebEnabled: true,
+        });
+      }
+      if (url.startsWith("/oauth/sso/check-handle-available?"))
+        return json({ available: true });
+      if (
+        url === "/oauth/sso/complete-registration" &&
+        init?.method === "POST"
+      ) {
+        return json({
+          did: "did:web:example.com",
+          handle: "alice.pds.test",
+          redirectUrl: "/app/verify",
+          appPassword: "test-password",
+          appPasswordName: "migration",
+        });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     render(

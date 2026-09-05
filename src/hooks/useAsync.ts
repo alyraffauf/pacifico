@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export function useAsync<T>(
-  load: () => Promise<T>,
-  dependencies: readonly unknown[] = [],
-) {
+export function useAsync<T>(load: () => Promise<T>) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,7 +25,7 @@ export function useAsync<T>(
       if (mounted.current && generation === requestGeneration.current)
         setLoading(false);
     }
-  }, dependencies);
+  }, [load]);
 
   useEffect(() => {
     mounted.current = true;
@@ -38,7 +35,7 @@ export function useAsync<T>(
     };
   }, []);
   useEffect(() => {
-    void reload();
+    queueMicrotask(() => void reload());
   }, [reload]);
   return { data, error, loading, reload, setData };
 }

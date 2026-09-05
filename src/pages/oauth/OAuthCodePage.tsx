@@ -72,7 +72,6 @@ export function OAuthCodePage() {
             maxLength={8}
             inputMode={isTotp ? "text" : "numeric"}
             autoComplete="one-time-code"
-            autoFocus
             required
           />
         </Field>

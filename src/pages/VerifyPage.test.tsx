@@ -4,9 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { VerifyPage } from "./VerifyPage.tsx";
 
 const mocks = vi.hoisted(() => ({
-  describeServer: vi.fn(),
-  checkChannelVerified: vi.fn(),
-  verifyToken: vi.fn(),
+  describeServer: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  checkChannelVerified: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  verifyToken: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
 }));
 
 vi.mock("../lib/api.ts", () => ({
@@ -15,8 +15,8 @@ vi.mock("../lib/api.ts", () => ({
 }));
 
 vi.mock("../lib/auth.ts", () => ({
-  confirmSignup: vi.fn(),
-  resendVerification: vi.fn(),
+  confirmSignup: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  resendVerification: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
 }));
 
 vi.mock("../hooks/useAuthState.ts", () => ({

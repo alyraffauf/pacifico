@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Alert,
@@ -26,7 +26,7 @@ type Notice = { tone: "success" | "error"; text: string };
 
 export function DelegationPage() {
   const session = useSession();
-  const resource = useAsync(async () => {
+  const loadDelegation = useCallback(async () => {
     const [controllers, accounts, presets, audit] = await Promise.all([
       api.listDelegationControllers(session.accessJwt),
       api.listDelegationControlledAccounts(session.accessJwt),
@@ -44,6 +44,7 @@ export function DelegationPage() {
       audit: audit.value,
     };
   }, [session.accessJwt]);
+  const resource = useAsync(loadDelegation);
   const [identifier, setIdentifier] = useState("");
   const [resolved, setResolved] = useState<{
     did: string;
@@ -57,15 +58,12 @@ export function DelegationPage() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
 
-  useEffect(() => {
-    const fallback =
-      resource.data?.presets.find((preset) => preset.name === "owner")
-        ?.scopes ??
-      resource.data?.presets[0]?.scopes ??
-      "";
-    if (!scope) setScope(fallback);
-    if (!createScope) setCreateScope(fallback);
-  }, [resource.data, scope, createScope]);
+  const fallbackScope =
+    resource.data?.presets.find((preset) => preset.name === "owner")?.scopes ??
+    resource.data?.presets[0]?.scopes ??
+    "";
+  const selectedScope = scope || fallbackScope;
+  const selectedCreateScope = createScope || fallbackScope;
 
   async function run(action: () => Promise<void>, success: string) {
     setBusy(true);
@@ -166,7 +164,7 @@ export function DelegationPage() {
                   ) : null}
                   <Field label="Access level">
                     <Select
-                      value={scope}
+                      value={selectedScope}
                       onChange={(event) => setScope(event.target.value)}
                     >
                       {resource.data.presets.map((preset) => (
@@ -183,7 +181,7 @@ export function DelegationPage() {
                         const result = await api.addDelegationController(
                           session.accessJwt,
                           unsafeAsDid(resolved!.did),
-                          unsafeAsScopeSet(scope),
+                          unsafeAsScopeSet(selectedScope),
                         );
                         if (!result.ok) throw result.error;
                         setIdentifier("");
@@ -224,7 +222,7 @@ export function DelegationPage() {
                   </Field>
                   <Field label="Your access">
                     <Select
-                      value={createScope}
+                      value={selectedCreateScope}
                       onChange={(event) => setCreateScope(event.target.value)}
                     >
                       {resource.data.presets.map((preset) => (
@@ -244,7 +242,7 @@ export function DelegationPage() {
                           email.trim()
                             ? unsafeAsEmail(email.trim())
                             : undefined,
-                          unsafeAsScopeSet(createScope),
+                          unsafeAsScopeSet(selectedCreateScope),
                         );
                         if (!result.ok) throw result.error;
                         setHandle("");

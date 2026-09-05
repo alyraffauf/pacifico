@@ -15,14 +15,12 @@ export function OAuthAccountsPage() {
   const navigate = useNavigate();
   const requestUri = requestParameter("request_uri");
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(Boolean(requestUri));
+  const [error, setError] = useState<string | null>(
+    requestUri ? null : "The authorization request is missing.",
+  );
   useEffect(() => {
-    if (!requestUri) {
-      setError("The authorization request is missing.");
-      setLoading(false);
-      return;
-    }
+    if (!requestUri) return;
     void fetch(
       `/oauth/authorize/accounts?request_uri=${encodeURIComponent(requestUri)}`,
     )

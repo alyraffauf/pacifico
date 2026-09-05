@@ -117,25 +117,31 @@ export function Alert({
     warning: "border-ctp-yellow/50 bg-ctp-yellow/10 text-ctp-yellow",
     error: "border-ctp-red/50 bg-ctp-red/10 text-ctp-red",
   };
+  if (tone === "error") {
+    return (
+      <div
+        role="alert"
+        className={joinClasses("rounded border px-4 py-3 text-sm", tones[tone])}
+      >
+        {children}
+      </div>
+    );
+  }
   return (
-    <div
-      role={tone === "error" ? "alert" : "status"}
+    <output
       className={joinClasses("rounded border px-4 py-3 text-sm", tones[tone])}
     >
       {children}
-    </div>
+    </output>
   );
 }
 
 export function Loading({ label = "Loading" }: { label?: string }) {
   return (
-    <div
-      className="flex items-center gap-2 py-6 text-sm text-ctp-subtext-0"
-      role="status"
-    >
+    <output className="flex items-center gap-2 py-6 text-sm text-ctp-subtext-0">
       <IconLoader2 className="size-5 animate-spin" aria-hidden="true" />
       {label}
-    </div>
+    </output>
   );
 }
 

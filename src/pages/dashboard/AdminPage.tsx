@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Button,
@@ -72,12 +72,12 @@ export function AdminPage() {
     [config, savedConfig, logoFile],
   );
 
-  function stopSignalPolling() {
+  const stopSignalPolling = useCallback(() => {
     if (signalPollTimer.current) clearInterval(signalPollTimer.current);
     if (signalTimeout.current) clearTimeout(signalTimeout.current);
     signalPollTimer.current = null;
     signalTimeout.current = null;
-  }
+  }, []);
 
   async function loadAccounts(reset = true) {
     const result = await api.searchAccounts(session.accessJwt, {
@@ -93,7 +93,6 @@ export function AdminPage() {
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
     void Promise.allSettled([
       api.getServerStats(session.accessJwt),
       api.getServerConfig(),
@@ -139,7 +138,7 @@ export function AdminPage() {
       active = false;
       stopSignalPolling();
     };
-  }, [session.accessJwt]);
+  }, [session.accessJwt, stopSignalPolling, t]);
 
   useEffect(
     () => () => {
@@ -432,7 +431,7 @@ export function AdminPage() {
                 <th>{t("admin.handle")}</th>
                 <th>{t("admin.did")}</th>
                 <th>{t("admin.created")}</th>
-                <th></th>
+                <th aria-label="Actions" />
               </tr>
             </thead>
             <tbody>

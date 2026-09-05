@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AuthLayout } from "../components/AuthLayout.tsx";
 import {
@@ -104,18 +104,6 @@ export function VerifyPage() {
       .catch(() => setServer({}));
   }, [pending]);
 
-  useEffect(() => {
-    if (
-      mode !== "token" ||
-      !code.trim() ||
-      !identifier.trim() ||
-      autoSubmitted.current
-    )
-      return;
-    autoSubmitted.current = true;
-    void verifyToken();
-  }, [code, identifier, mode]);
-
   useBotVerificationPolling(
     mode === "signup" && Boolean(pending) && usesBotVerification,
     async () => {
@@ -135,7 +123,7 @@ export function VerifyPage() {
     },
   );
 
-  async function verifyToken() {
+  const verifyToken = useCallback(async () => {
     if (!code.trim() || !identifier.trim()) return;
     setSubmitting(true);
     setError(null);
@@ -156,7 +144,19 @@ export function VerifyPage() {
     } finally {
       setSubmitting(false);
     }
-  }
+  }, [code, identifier, session]);
+
+  useEffect(() => {
+    if (
+      mode !== "token" ||
+      !code.trim() ||
+      !identifier.trim() ||
+      autoSubmitted.current
+    )
+      return;
+    autoSubmitted.current = true;
+    void verifyToken();
+  }, [code, identifier, mode, verifyToken]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();

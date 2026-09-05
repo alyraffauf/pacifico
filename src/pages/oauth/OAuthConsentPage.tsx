@@ -180,15 +180,15 @@ export function OAuthConsentPage() {
   const [consent, setConsent] = useState<ConsentData | null>(null);
   const [selections, setSelections] = useState<Record<string, boolean>>({});
   const [remember, setRemember] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(requestUri));
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    requestUri ? null : "The authorization request is missing.",
+  );
 
   useEffect(() => {
     let active = true;
     if (!requestUri) {
-      setError("The authorization request is missing.");
-      setLoading(false);
       return () => {
         active = false;
       };

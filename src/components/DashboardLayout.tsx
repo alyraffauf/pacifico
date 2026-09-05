@@ -154,6 +154,7 @@ export function DashboardLayout({
   }, []);
 
   useEffect(() => {
+    if (!location.pathname) return;
     const activeItem = navRef.current?.querySelector<HTMLElement>(
       "[aria-current='page']",
     );

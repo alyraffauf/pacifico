@@ -128,8 +128,10 @@ export function createInboundMigrationFlow() {
       state.sourceDid = did;
       state.sourceHandle = normalized;
       sourceClient = new AtprotoClient(pdsUrl);
-    } catch (e) {
-      throw new Error(`Could not resolve handle: ${(e as Error).message}`);
+    } catch (error) {
+      throw new Error(`Could not resolve handle: ${(error as Error).message}`, {
+        cause: error,
+      });
     }
   }
 

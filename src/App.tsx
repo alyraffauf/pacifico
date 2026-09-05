@@ -156,6 +156,7 @@ function NotFoundPage() {
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
+    if (!pathname) return;
     window.scrollTo({ top: 0, left: 0 });
   }, [pathname]);
   return null;

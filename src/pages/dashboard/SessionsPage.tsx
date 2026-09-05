@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Alert,
@@ -19,10 +19,11 @@ export function SessionsPage() {
   const session = useSession();
   const t = useTranslation();
   const navigate = useNavigate();
-  const resource = useAsync(
+  const loadSessions = useCallback(
     () => api.listSessions(session.accessJwt),
     [session.accessJwt],
   );
+  const resource = useAsync(loadSessions);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [mutating, setMutating] = useState(false);
 

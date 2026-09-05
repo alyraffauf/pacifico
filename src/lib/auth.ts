@@ -14,7 +14,7 @@ import {
   unsafeAsHandle,
   unsafeAsRefreshToken,
 } from "./types/branded.ts";
-import { err, isErr, isOk, ok, type Result } from "./types/result.ts";
+import { err, isOk, ok, type Result } from "./types/result.ts";
 import {
   checkForOAuthCallback,
   clearAllOAuthState,
@@ -57,8 +57,6 @@ function toAuthError(e: unknown): AuthError {
   }
   return { type: "unknown", message: "An unknown error occurred" };
 }
-
-type AuthStateKind = "unauthenticated" | "loading" | "authenticated" | "error";
 
 export type AuthState =
   | {
@@ -665,7 +663,7 @@ export function matchAuthState<T>(handlers: {
   }
 }
 
-export function _testSetState(newState: {
+export function setAuthStateForTest(newState: {
   session: Session | null;
   loading: boolean;
   error: string | null;
@@ -685,12 +683,12 @@ export function _testSetState(newState: {
   }
 }
 
-export function _testResetState(): void {
+export function resetAuthStateForTest(): void {
   setState(createLoading([]));
 }
 
-export function _testReset(): void {
-  _testResetState();
+export function resetAuthForTest(): void {
+  resetAuthStateForTest();
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(ACCOUNTS_KEY);
 }

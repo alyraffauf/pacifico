@@ -1,28 +1,28 @@
-declare const __step: unique symbol;
+declare const stepBrand: unique symbol;
 
 export type TotpIdle = {
   readonly step: "idle";
-  readonly [__step]: "idle";
+  readonly [stepBrand]: "idle";
 };
 
 export type TotpQr = {
   readonly step: "qr";
   readonly qrBase64: string;
   readonly totpUri: string;
-  readonly [__step]: "qr";
+  readonly [stepBrand]: "qr";
 };
 
 export type TotpVerify = {
   readonly step: "verify";
   readonly qrBase64: string;
   readonly totpUri: string;
-  readonly [__step]: "verify";
+  readonly [stepBrand]: "verify";
 };
 
 export type TotpBackup = {
   readonly step: "backup";
   readonly backupCodes: readonly string[];
-  readonly [__step]: "backup";
+  readonly [stepBrand]: "backup";
 };
 
 export type TotpSetupState = TotpIdle | TotpQr | TotpVerify | TotpBackup;
@@ -57,7 +57,8 @@ export function goBackToQr(state: TotpVerify): TotpQr {
   } as TotpQr;
 }
 
-export function finish(_state: TotpBackup): TotpIdle {
+export function finish(state: TotpBackup): TotpIdle {
+  void state;
   return idleState;
 }
 

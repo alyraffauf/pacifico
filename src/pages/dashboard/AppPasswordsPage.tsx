@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   Alert,
   Button,
@@ -26,10 +26,11 @@ const scopePresets = {
 export function AppPasswordsPage() {
   const session = useSession();
   const t = useTranslation();
-  const passwords = useAsync(
+  const loadPasswords = useCallback(
     () => api.listAppPasswords(session.accessJwt),
     [session.accessJwt],
   );
+  const passwords = useAsync(loadPasswords);
   const [name, setName] = useState("");
   const [scope, setScope] = useState<keyof typeof scopePresets>("full");
   const [createdPassword, setCreatedPassword] = useState<string | null>(null);

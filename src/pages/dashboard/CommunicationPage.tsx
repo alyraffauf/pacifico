@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ChannelVerificationPrompt,
   hasBotVerification,
@@ -39,7 +39,7 @@ function isUsernameChannel(channel: string): channel is UsernameChannel {
 
 export function CommunicationPage() {
   const session = useSession();
-  const resource = useAsync(async () => {
+  const loadCommunication = useCallback(async () => {
     const [prefs, server, history] = await Promise.all([
       api.getNotificationPrefs(session.accessJwt),
       api.describeServer(),
@@ -47,6 +47,12 @@ export function CommunicationPage() {
     ]);
     return { prefs, server, history: history.notifications };
   }, [session.accessJwt]);
+  const {
+    data: communicationData,
+    error: communicationError,
+    loading: communicationLoading,
+    reload: reloadCommunication,
+  } = useAsync(loadCommunication);
   const [channel, setChannel] = useState<VerificationChannel>("email");
   const [usernames, setUsernames] = useState({
     discord: "",
@@ -68,48 +74,51 @@ export function CommunicationPage() {
   } | null>(null);
 
   useEffect(() => {
-    if (!resource.data) return;
+    if (!communicationData) return;
+    const loaded = communicationData;
     const loadedUsernames = {
-      discord: resource.data.prefs.discordUsername ?? "",
-      telegram: resource.data.prefs.telegramUsername ?? "",
-      signal: resource.data.prefs.signalUsername ?? "",
+      discord: loaded.prefs.discordUsername ?? "",
+      telegram: loaded.prefs.telegramUsername ?? "",
+      signal: loaded.prefs.signalUsername ?? "",
     };
-    setChannel(resource.data.prefs.preferredChannel);
-    setUsernames(loadedUsernames);
-    setSavedUsernames(loadedUsernames);
-    setVerifications([
-      ...(!resource.data.prefs.discordVerified && loadedUsernames.discord
-        ? [
-            {
-              channel: "discord" as const,
-              identifier: loadedUsernames.discord,
-              code: "",
-            },
-          ]
-        : []),
-      ...(!resource.data.prefs.telegramVerified && loadedUsernames.telegram
-        ? [
-            {
-              channel: "telegram" as const,
-              identifier: loadedUsernames.telegram,
-              code: "",
-            },
-          ]
-        : []),
-      ...(!resource.data.prefs.signalVerified && loadedUsernames.signal
-        ? [
-            {
-              channel: "signal" as const,
-              identifier: loadedUsernames.signal,
-              code: "",
-            },
-          ]
-        : []),
-    ]);
-  }, [resource.data]);
+    queueMicrotask(() => {
+      setChannel(loaded.prefs.preferredChannel);
+      setUsernames(loadedUsernames);
+      setSavedUsernames(loadedUsernames);
+      setVerifications([
+        ...(!loaded.prefs.discordVerified && loadedUsernames.discord
+          ? [
+              {
+                channel: "discord" as const,
+                identifier: loadedUsernames.discord,
+                code: "",
+              },
+            ]
+          : []),
+        ...(!loaded.prefs.telegramVerified && loadedUsernames.telegram
+          ? [
+              {
+                channel: "telegram" as const,
+                identifier: loadedUsernames.telegram,
+                code: "",
+              },
+            ]
+          : []),
+        ...(!loaded.prefs.signalVerified && loadedUsernames.signal
+          ? [
+              {
+                channel: "signal" as const,
+                identifier: loadedUsernames.signal,
+                code: "",
+              },
+            ]
+          : []),
+      ]);
+    });
+  }, [communicationData]);
 
   useEffect(() => {
-    if (!resource.data || verifications.length === 0) return;
+    if (!communicationData || verifications.length === 0) return;
     const botVerifications = verifications.filter(
       ({ channel: pendingChannel }) => hasBotVerification(pendingChannel),
     );
@@ -145,7 +154,7 @@ export function CommunicationPage() {
             text: `${[...completedChannels].join(" and ")} verified.`,
           });
           await refreshSession();
-          await resource.reload();
+          await reloadCommunication();
         }
       } catch {
         // Polling is best effort. The next interval retries without interrupting the form.
@@ -154,17 +163,17 @@ export function CommunicationPage() {
       }
     }, 3000);
     return () => globalThis.clearInterval(interval);
-  }, [resource.data, resource.reload, session.did, verifications]);
+  }, [communicationData, reloadCommunication, session.did, verifications]);
 
   function isAvailable(candidate: VerificationChannel) {
-    return (resource.data?.server.availableCommsChannels ?? ["email"]).includes(
-      candidate,
-    );
+    return (
+      communicationData?.server.availableCommsChannels ?? ["email"]
+    ).includes(candidate);
   }
 
   function isVerified(candidate: VerificationChannel): boolean {
     if (candidate === "email") return true;
-    const prefs = resource.data?.prefs;
+    const prefs = communicationData?.prefs;
     if (!prefs) return false;
     const verifiedByChannel: Record<UsernameChannel, boolean> = {
       discord: prefs.discordVerified,
@@ -198,7 +207,7 @@ export function CommunicationPage() {
           : "Notification settings saved.",
       });
       await refreshSession();
-      await resource.reload();
+      await reloadCommunication();
     } catch (caught) {
       setMessage({
         tone: "error",
@@ -235,7 +244,7 @@ export function CommunicationPage() {
       );
       setMessage({ tone: "success", text: `${verify.channel} verified.` });
       await refreshSession();
-      await resource.reload();
+      await reloadCommunication();
     } catch (caught) {
       setMessage({
         tone: "error",
@@ -249,7 +258,7 @@ export function CommunicationPage() {
     }
   }
 
-  const loaded = resource.data;
+  const loaded = communicationData;
   return (
     <div className="grid gap-6">
       <PageHeading
@@ -257,8 +266,10 @@ export function CommunicationPage() {
         description="Choose where account and security messages are sent."
       />
       {message ? <Alert tone={message.tone}>{message.text}</Alert> : null}
-      {resource.error ? <Alert tone="error">{resource.error}</Alert> : null}
-      {resource.loading ? (
+      {communicationError ? (
+        <Alert tone="error">{communicationError}</Alert>
+      ) : null}
+      {communicationLoading ? (
         <Loading />
       ) : loaded ? (
         <>
@@ -380,8 +391,11 @@ export function CommunicationPage() {
               <EmptyState>No messages have been sent.</EmptyState>
             ) : (
               <Card className="divide-y divide-ctp-surface-0">
-                {loaded.history.map((item, index) => (
-                  <article key={`${item.createdAt}-${index}`} className="p-4">
+                {loaded.history.map((item) => (
+                  <article
+                    key={`${item.createdAt}-${item.channel}-${item.notificationType}-${item.subject ?? ""}`}
+                    className="p-4"
+                  >
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <h3 className="font-medium text-ctp-text">
                         {item.subject || item.notificationType}

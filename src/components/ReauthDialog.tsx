@@ -34,7 +34,7 @@ export function ReauthDialog({
   const [totpCode, setTotpCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const dialogRef = useRef<HTMLElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
     const previouslyFocused =
@@ -131,12 +131,12 @@ export function ReauthDialog({
         event.target === event.currentTarget && onCancel()
       }
     >
-      <section
+      <dialog
+        open
         ref={dialogRef}
         aria-labelledby="reauth-title"
         aria-modal="true"
         className="w-full max-w-md rounded border border-ctp-surface-1 bg-ctp-mantle p-6 shadow-xl"
-        role="dialog"
       >
         <h2
           id="reauth-title"
@@ -174,7 +174,6 @@ export function ReauthDialog({
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                autoFocus
                 required
               />
             </Field>
@@ -187,7 +186,6 @@ export function ReauthDialog({
                 maxLength={6}
                 value={totpCode}
                 onChange={(event) => setTotpCode(event.target.value)}
-                autoFocus
                 required
               />
             </Field>
@@ -230,7 +228,7 @@ export function ReauthDialog({
             )}
           </div>
         </form>
-      </section>
+      </dialog>
     </div>,
     document.body,
   );

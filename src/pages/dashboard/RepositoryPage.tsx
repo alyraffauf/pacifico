@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Button,
@@ -27,10 +27,11 @@ type Editor = {
 
 export function RepositoryPage() {
   const session = useSession();
-  const repository = useAsync(
+  const loadRepository = useCallback(
     () => api.describeRepo(session.accessJwt, session.did),
     [session.accessJwt, session.did],
   );
+  const repository = useAsync(loadRepository);
   const [collection, setCollection] = useState("");
   const [cursor, setCursor] = useState<string | undefined>();
   const [records, setRecords] = useState<RecordInfo[]>([]);
@@ -43,44 +44,47 @@ export function RepositoryPage() {
     text: string;
   } | null>(null);
 
-  async function loadRecords(nextCollection: string, nextCursor?: string) {
-    if (!nextCollection) return;
-    setLoadingRecords(true);
-    setNotice(null);
-    try {
-      const result = await api.listRecords(
-        session.accessJwt,
-        session.did,
-        unsafeAsNsid(nextCollection),
-        { limit: 50, cursor: nextCursor },
-      );
-      setRecords((current) =>
-        nextCursor ? [...current, ...result.records] : result.records,
-      );
-      setCursor(result.cursor);
-    } catch (caught) {
-      setNotice({
-        tone: "error",
-        text:
-          caught instanceof ApiError
-            ? caught.message
-            : "Could not load records.",
-      });
-    } finally {
-      setLoadingRecords(false);
-    }
-  }
+  const loadRecords = useCallback(
+    async (nextCollection: string, nextCursor?: string) => {
+      if (!nextCollection) return;
+      setLoadingRecords(true);
+      setNotice(null);
+      try {
+        const result = await api.listRecords(
+          session.accessJwt,
+          session.did,
+          unsafeAsNsid(nextCollection),
+          { limit: 50, cursor: nextCursor },
+        );
+        setRecords((current) =>
+          nextCursor ? [...current, ...result.records] : result.records,
+        );
+        setCursor(result.cursor);
+      } catch (caught) {
+        setNotice({
+          tone: "error",
+          text:
+            caught instanceof ApiError
+              ? caught.message
+              : "Could not load records.",
+        });
+      } finally {
+        setLoadingRecords(false);
+      }
+    },
+    [session.accessJwt, session.did],
+  );
+
+  const selectedCollection =
+    collection || repository.data?.collections[0] || "";
 
   useEffect(() => {
-    const first = repository.data?.collections[0];
-    if (!collection && first) {
-      setCollection(first);
-      void loadRecords(first);
-    }
-  }, [repository.data]);
+    if (selectedCollection)
+      queueMicrotask(() => void loadRecords(selectedCollection));
+  }, [loadRecords, selectedCollection]);
 
   function startCreate() {
-    const target = collection || "app.bsky.feed.post";
+    const target = selectedCollection || "app.bsky.feed.post";
     const example =
       target === "app.bsky.feed.post"
         ? { $type: target, text: "", createdAt: new Date().toISOString() }
@@ -237,12 +241,11 @@ export function RepositoryPage() {
               </Field>
               <Field label="Collection">
                 <Select
-                  value={collection}
+                  value={selectedCollection}
                   onChange={(event) => {
                     const next = event.target.value;
                     setCollection(next);
                     setEditor(null);
-                    void loadRecords(next);
                   }}
                 >
                   {collections.map((item) => (
@@ -369,7 +372,7 @@ export function RepositoryPage() {
                   variant="secondary"
                   className="justify-self-center"
                   disabled={loadingRecords}
-                  onClick={() => void loadRecords(collection, cursor)}
+                  onClick={() => void loadRecords(selectedCollection, cursor)}
                 >
                   {loadingRecords ? "Loading" : "Load more"}
                 </Button>

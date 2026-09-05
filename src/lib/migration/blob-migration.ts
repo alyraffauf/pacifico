@@ -94,9 +94,7 @@ const collectMissingBlobs = async (
   localClient: AtprotoClient,
 ): Promise<string[]> => {
   const allBlobs: string[] = [];
-  let cursor: string | undefined;
-
-  do {
+  const collectPage = async (cursor?: string): Promise<void> => {
     const { blobs, cursor: nextCursor } = await localClient.listMissingBlobs(
       cursor,
       500,
@@ -105,8 +103,10 @@ const collectMissingBlobs = async (
       `[blob-migration] listMissingBlobs returned ${blobs.length} blobs, cursor: ${nextCursor}`,
     );
     allBlobs.push(...blobs.map((blob) => blob.cid));
-    cursor = nextCursor;
-  } while (cursor);
+    if (nextCursor) await collectPage(nextCursor);
+  };
+
+  await collectPage();
 
   return allBlobs;
 };
@@ -210,7 +210,7 @@ export async function migrateBlobs(
   console.log(
     `[blob-migration] Complete: ${migrated} migrated, ${failed.length} failed`,
   );
-  failed.length > 0 && console.log("[blob-migration] Failed CIDs:", failed);
+  if (failed.length > 0) console.log("[blob-migration] Failed CIDs:", failed);
 
   return {
     migrated,

@@ -23,6 +23,7 @@ const svg = await satori(
     }}
   >
     <img
+      alt="Pacifico"
       src={logoUrl}
       style={{ height: 420, objectFit: "contain", width: 420 }}
     />
