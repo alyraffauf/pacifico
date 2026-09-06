@@ -11,11 +11,15 @@ describe("CommunicationPreviewPage", () => {
     expect(
       await screen.findByText("New sign-in to your account"),
     ).toBeInTheDocument();
+    const saveButton = screen.getByRole("button", { name: "Save" });
+    expect(saveButton).toBeDisabled();
+    expect(screen.queryByText("Configure below to enable")).toBeNull();
     await user.selectOptions(
       screen.getByLabelText("Preferred channel"),
       "discord",
     );
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(saveButton).toBeEnabled();
+    await user.click(saveButton);
 
     expect(
       await screen.findByText("Communication preferences saved"),
@@ -23,6 +27,7 @@ describe("CommunicationPreviewPage", () => {
     await waitFor(() =>
       expect(screen.getByLabelText("Preferred channel")).toHaveValue("discord"),
     );
+    await waitFor(() => expect(saveButton).toBeDisabled());
   });
 
   it("opens channel verification in a dialog", async () => {

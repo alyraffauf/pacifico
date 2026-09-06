@@ -17,6 +17,7 @@ import {
   Input,
   Select,
   SettingsDialog,
+  SettingsContent,
   SettingsItem,
   SettingsRow,
   SettingsSection,
@@ -263,12 +264,6 @@ export function CommunicationPage({
     return isVerified(channel) ? t("comms.verified") : t("comms.notVerified");
   }
 
-  function channelDescription(channel: UsernameChannel) {
-    if (!isAvailable(channel)) return t("comms.notConfiguredOnServer");
-    if (!usernames[channel]) return t("comms.configureToEnable");
-    return undefined;
-  }
-
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -358,6 +353,7 @@ export function CommunicationPage({
   }
 
   const loaded = communicationData;
+  const availableUsernameChannels = usernameChannels.filter(isAvailable);
   const hasUnsavedChanges = loaded
     ? preferredChannel !== loaded.prefs.preferredChannel ||
       usernameChannels.some(
@@ -408,40 +404,43 @@ export function CommunicationPage({
       <form id="communication-preferences" onSubmit={save}>
         <SettingsSection
           title={t("comms.channelConfiguration")}
-          description={t("comms.channelConfigurationDescription")}
+          description={
+            availableUsernameChannels.length > 0
+              ? t("comms.channelConfigurationDescription")
+              : t("comms.additionalChannelsUnavailable")
+          }
         >
-          <SettingsRow
-            label={t("comms.preferredChannel")}
-            value={
-              <Select
-                compact
-                aria-label={t("comms.preferredChannel")}
-                value={preferredChannel}
-                disabled={busy}
-                onChange={(event) =>
-                  setPreferredChannel(event.target.value as VerificationChannel)
-                }
-              >
-                {channels.map((channel) => (
-                  <option
-                    key={channel}
-                    value={channel}
-                    disabled={
-                      !isAvailable(channel) ||
-                      (channel !== "email" && !usernames[channel])
-                    }
-                  >
-                    {channelLabel(channel)}
-                    {!isAvailable(channel)
-                      ? ` (${t("comms.unavailable")})`
-                      : channel !== "email" && !isVerified(channel)
+          {availableUsernameChannels.length > 0 ? (
+            <SettingsRow
+              label={t("comms.preferredChannel")}
+              value={
+                <Select
+                  compact
+                  aria-label={t("comms.preferredChannel")}
+                  value={preferredChannel}
+                  disabled={busy}
+                  onChange={(event) =>
+                    setPreferredChannel(
+                      event.target.value as VerificationChannel,
+                    )
+                  }
+                >
+                  {channels.filter(isAvailable).map((channel) => (
+                    <option
+                      key={channel}
+                      value={channel}
+                      disabled={channel !== "email" && !usernames[channel]}
+                    >
+                      {channelLabel(channel)}
+                      {channel !== "email" && !isVerified(channel)
                         ? ` (${t("comms.notVerified")})`
                         : ""}
-                  </option>
-                ))}
-              </Select>
-            }
-          />
+                    </option>
+                  ))}
+                </Select>
+              }
+            />
+          ) : null}
           <SettingsRow
             label={channelLabel("email")}
             value={loaded.prefs.email}
@@ -456,7 +455,7 @@ export function CommunicationPage({
               </div>
             }
           />
-          {usernameChannels.map((channel) => {
+          {availableUsernameChannels.map((channel) => {
             const pendingVerification = verifications.some(
               (verification) => verification.channel === channel,
             );
@@ -473,7 +472,7 @@ export function CommunicationPage({
                       className="py-2.5 font-mono text-sm"
                       value={usernames[channel]}
                       placeholder={channelPlaceholder(channel)}
-                      disabled={busy || !isAvailable(channel)}
+                      disabled={busy}
                       autoComplete="off"
                       onChange={(event) =>
                         setUsernames((current) => ({
@@ -484,7 +483,6 @@ export function CommunicationPage({
                     />
                   </label>
                 }
-                description={channelDescription(channel)}
                 stackActionOnMobile
                 action={
                   <div className="flex flex-wrap items-center gap-1 sm:w-36 sm:justify-end">
@@ -514,12 +512,14 @@ export function CommunicationPage({
               />
             );
           })}
+          {availableUsernameChannels.length > 0 ? (
+            <SettingsContent className="flex justify-end py-3">
+              <Button type="submit" disabled={busy || !hasUnsavedChanges}>
+                {busy ? t("common.saving") : t("common.save")}
+              </Button>
+            </SettingsContent>
+          ) : null}
         </SettingsSection>
-        <div className="mt-3 flex justify-end px-1">
-          <Button type="submit" disabled={busy || !hasUnsavedChanges}>
-            {busy ? t("common.saving") : t("common.save")}
-          </Button>
-        </div>
       </form>
 
       <SettingsSection title={t("comms.messageHistory")}>

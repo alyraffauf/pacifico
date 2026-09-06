@@ -14,6 +14,8 @@ import {
   Input,
   SegmentedControl,
   Select,
+  SettingsContent,
+  SettingsItem,
   SettingsRow,
   SettingsSection,
   SettingsSwitch,
@@ -421,13 +423,12 @@ export function SettingsSections({
         />
       </SettingsSection>
 
-      <SettingsSection
-        title={t("settings.dangerZone")}
-        description={t("settings.deleteWarning")}
-        tone="danger"
-      >
-        <div className="px-4 py-3.5 sm:px-5">
-          {deleteRequested ? (
+      <SettingsSection title={t("settings.dangerZone")} tone="danger">
+        {deleteRequested ? (
+          <SettingsContent>
+            <p className="mb-4 text-sm leading-6 text-ctp-subtext0">
+              {t("settings.deleteWarning")}
+            </p>
             <form className="grid gap-4" onSubmit={deleteAccount}>
               <Field label={t("settings.confirmationCode")}>
                 <Input
@@ -459,16 +460,22 @@ export function SettingsSections({
                 {t("settings.permanentlyDelete")}
               </Button>
             </form>
-          ) : (
-            <Button
-              variant="dangerOutline"
-              disabled={saving}
-              onClick={() => void requestDelete()}
-            >
-              {t("settings.requestDeletion")}
-            </Button>
-          )}
-        </div>
+          </SettingsContent>
+        ) : (
+          <SettingsItem
+            title={t("settings.deleteAccount")}
+            description={t("settings.deleteWarning")}
+            action={
+              <Button
+                variant="dangerOutline"
+                disabled={saving}
+                onClick={() => void requestDelete()}
+              >
+                {t("settings.requestDeletion")}
+              </Button>
+            }
+          />
+        )}
       </SettingsSection>
     </div>
   );

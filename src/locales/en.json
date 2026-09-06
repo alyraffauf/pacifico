@@ -466,6 +466,7 @@
   "comms": {
     "description": "Choose where account and security messages are sent.",
     "channelConfigurationDescription": "Set a primary delivery channel and connect messaging accounts.",
+    "additionalChannelsUnavailable": "Additional channels have not been configured by this server.",
     "failedToLoad": "Failed to load preferences",
     "failedToSave": "Failed to save preferences",
     "failedToVerify": "Verification failed",
@@ -476,7 +477,6 @@
     "discordVia": "Receive messages via Discord DM",
     "telegramVia": "Receive messages via Telegram",
     "signalVia": "Receive messages via Signal",
-    "configureToEnable": "Configure below to enable",
     "notConfiguredOnServer": "Not configured on this server",
     "unavailable": "Unavailable",
     "notConfigured": "Not configured",

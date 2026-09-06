@@ -466,6 +466,7 @@
   "comms": {
     "description": "Choisissez où envoyer les messages relatifs au compte et à la sécurité.",
     "channelConfigurationDescription": "Définissez un canal principal et connectez vos comptes de messagerie.",
+    "additionalChannelsUnavailable": "Aucun canal supplémentaire n’a été configuré par ce serveur.",
     "failedToLoad": "Échec du chargement des préférences",
     "failedToSave": "Échec de l'enregistrement des préférences",
     "failedToVerify": "Échec de la vérification",
@@ -476,7 +477,6 @@
     "discordVia": "Recevoir les messages par DM Discord",
     "telegramVia": "Recevoir les messages par Telegram",
     "signalVia": "Recevoir les messages par Signal",
-    "configureToEnable": "Configurez ci-dessous pour activer",
     "notConfiguredOnServer": "Non configuré sur ce serveur",
     "unavailable": "Indisponible",
     "notConfigured": "Non configuré",
