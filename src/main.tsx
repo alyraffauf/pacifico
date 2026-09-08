@@ -3,7 +3,9 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App.tsx";
 import "./index.css";
+import { api } from "./lib/api.ts";
 import { initializeI18n } from "./lib/i18n.ts";
+import { applySiteIcon } from "./lib/site.ts";
 
 document.title = globalThis.location.hostname;
 
@@ -32,6 +34,13 @@ const PreviewPage = import.meta.env.DEV
                     .DelegationPreviewPage
                 : null
   : null;
+
+if (!PreviewPage) {
+  void api
+    .getServerConfig()
+    .then(({ logoCid }) => applySiteIcon(logoCid))
+    .catch(() => undefined);
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

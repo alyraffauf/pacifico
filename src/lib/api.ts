@@ -664,10 +664,6 @@ export const api = {
     token: AccessToken,
     config: {
       serverName?: string;
-      primaryColor?: string;
-      primaryColorDark?: string;
-      secondaryColor?: string;
-      secondaryColorDark?: string;
       logoCid?: string;
     },
   ): Promise<SuccessResponse> {

@@ -14,6 +14,7 @@ import { useSession } from "../../hooks/useSession.ts";
 import { api, ApiError } from "../../lib/api.ts";
 import { formatDateTime } from "../../lib/date.ts";
 import { useTranslation } from "../../lib/i18n.ts";
+import { applySiteIcon, getSiteIconPath } from "../../lib/site.ts";
 import type {
   AccountInfo,
   AccountSearchResult,
@@ -30,16 +31,6 @@ import {
 } from "./AdminSections.tsx";
 
 type Notice = { tone: "success" | "error"; text: string };
-
-function editableConfig(config: ServerConfig): ServerConfig {
-  return {
-    ...config,
-    primaryColor: config.primaryColor ?? "",
-    primaryColorDark: config.primaryColorDark ?? "",
-    secondaryColor: config.secondaryColor ?? "",
-    secondaryColorDark: config.secondaryColorDark ?? "",
-  };
-}
 
 export function AdminPage() {
   const session = useSession();
@@ -114,10 +105,13 @@ export function AdminPage() {
           if (statsResult.status === "fulfilled") setStats(statsResult.value);
           else failures.push(t("admin.failedToLoadStats"));
           if (configResult.status === "fulfilled") {
-            const nextConfig = editableConfig(configResult.value);
+            const nextConfig = configResult.value;
             setConfig(nextConfig);
             setSavedConfig(nextConfig);
-            setLogoPreview(nextConfig.logoCid ? "/favicon.ico" : null);
+            setLogoPreview(
+              nextConfig.logoCid ? getSiteIconPath(nextConfig.logoCid) : null,
+            );
+            applySiteIcon(nextConfig.logoCid);
           } else failures.push(t("admin.failedToLoadConfig"));
           if (signalResult.status === "fulfilled")
             setSignalLinked(signalResult.value.linked);
@@ -174,17 +168,14 @@ export function AdminPage() {
         : (config.logoCid ?? "");
       await api.updateServerConfig(session.accessJwt, {
         serverName: config.serverName,
-        primaryColor: config.primaryColor ?? "",
-        primaryColorDark: config.primaryColorDark ?? "",
-        secondaryColor: config.secondaryColor ?? "",
-        secondaryColorDark: config.secondaryColorDark ?? "",
         logoCid,
       });
-      const updated = editableConfig(await api.getServerConfig());
+      const updated = await api.getServerConfig();
       setConfig(updated);
       setSavedConfig(updated);
       setLogoFile(null);
-      setLogoPreview(updated.logoCid ? "/favicon.ico" : null);
+      setLogoPreview(updated.logoCid ? getSiteIconPath(updated.logoCid) : null);
+      applySiteIcon(updated.logoCid);
     }, t("admin.configSaved"));
   }
 
@@ -312,34 +303,6 @@ export function AdminPage() {
                   </Button>
                 </div>
               ) : null}
-              <fieldset className="grid gap-3">
-                <legend className="font-mono text-sm text-ctp-subtext0">
-                  {t("admin.themeColors")}
-                </legend>
-                <p className="text-xs text-ctp-overlay1">
-                  {t("admin.themeColorsHint")}
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {(
-                    [
-                      ["primaryColor", t("admin.primaryLight")],
-                      ["primaryColorDark", t("admin.primaryDark")],
-                      ["secondaryColor", t("admin.secondaryLight")],
-                      ["secondaryColorDark", t("admin.secondaryDark")],
-                    ] as const
-                  ).map(([field, label]) => (
-                    <Field key={field} label={label}>
-                      <Input
-                        value={config[field] ?? ""}
-                        placeholder="#89b4fa"
-                        onChange={(event) =>
-                          setConfig({ ...config, [field]: event.target.value })
-                        }
-                      />
-                    </Field>
-                  ))}
-                </div>
-              </fieldset>
               <Button
                 className="justify-self-start"
                 disabled={busy || !configChanged}

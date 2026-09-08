@@ -259,10 +259,6 @@ export interface SignalLinkResult {
 
 export interface ServerConfig {
   serverName: string;
-  primaryColor: string | null;
-  primaryColorDark: string | null;
-  secondaryColor: string | null;
-  secondaryColorDark: string | null;
   logoCid: Cid | null;
 }
 
